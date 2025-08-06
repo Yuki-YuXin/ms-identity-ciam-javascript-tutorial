@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Button, Alert, Card, ListGroup, Modal, Form } from 'react-bootstrap';
-import { FaShieldAlt, FaKey, FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import { FaBell, FaKey, FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 
 import '../styles/App.css';
 
@@ -32,10 +32,8 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
                     <strong>{passkey.name}</strong>
                 </div>
                 <small className="text-muted">
-                    Last used: {passkey.lastUsed} • Created: {passkey.created}
+                    Device: {passkey.device} • Created: {passkey.created}
                 </small>
-                <br />
-                <small className="text-muted">Device: {passkey.device}</small>
             </div>
             <div>
                 <Button 
@@ -87,12 +85,7 @@ const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
 const PasskeysHeader = ({ count, maxCount, onAddClick }) => {
     return (
         <div className="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <h5 className="mb-1">Passkeys</h5>
-                <small className="text-muted">
-                    {count} of {maxCount} passkeys configured
-                </small>
-            </div>
+            <h5 className="mb-1">Passkeys ({count}/{maxCount})</h5>
             <Button 
                 variant="primary" 
                 size="sm"
@@ -232,12 +225,7 @@ const PasswordSection = () => {
         <Card className="mb-4">
             <Card.Body>
                 <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 className="mb-1">Password</h5>
-                        <small className="text-muted">
-                            Last changed: 3 months ago
-                        </small>
-                    </div>
+                    <h5 className="mb-1">Password</h5>
                     <Button variant="outline-primary" onClick={handleChangePassword}>
                         Change Password
                     </Button>
@@ -299,7 +287,7 @@ const SecurityPageHeader = ({ title, subtitle }) => {
     return (
         <div className="text-center mb-4">
             <div className="d-flex justify-content-center align-items-center mb-2">
-                <FaShieldAlt className="me-2 text-primary" size={32} />
+                <FaBell className="me-2 text-primary" size={32} />
                 <h2 className="mb-0">{title}</h2>
             </div>
             <p className="text-muted">{subtitle}</p>
@@ -307,22 +295,52 @@ const SecurityPageHeader = ({ title, subtitle }) => {
     );
 };
 
-// 1. SecurityPage (Container Component)
+// UserProfileHeader (Presentational Component)
+const UserProfileHeader = ({ name, email}) => {
+    // Extract initials from name
+    const getInitials = (fullName) => {
+        return fullName
+            .split(' ')
+            .map(name => name.charAt(0))
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
+    return (
+        <div className="user-profile-header mb-4">
+            <div className="user-info mb-3">
+                <h2 className="user-email mb-0 fw-semibold">{email}</h2>
+            </div>
+            <p className="user-description mb-0 text-muted">
+                Manage sign-in and verification options for your account
+            </p>
+        </div>
+    );
+};
+
+// Updated SecurityPage component
 const SecurityPage = ({ idTokenClaims }) => {
+    // Mock user data - you can replace this with actual user data from props or context
+    const userData = {
+        name: "John Doe",
+        email: "test@gmail.com",
+    };
+
     const alerts = [
         {
             id: 1,
-            message: "For your security, multi-factor authentication is required when managing your credentials.",
+            message: "For your security, multi-factor authentication is required when managing your credentials",
             type: "info",
-            icon: FaKey
+            icon: FaBell
         }
     ];
 
     return (
         <Container className="py-4">
-            <SecurityPageHeader 
-                title="Security"
-                subtitle="Manage sign-in and verification options for your account"
+            <UserProfileHeader 
+                name={userData.name}
+                email={userData.email}
             />
 
             {alerts.map(alert => (
@@ -338,7 +356,7 @@ const SecurityPage = ({ idTokenClaims }) => {
             <PasskeysSection />
 
             {/* Debug: Show ID Token Claims */}
-            {idTokenClaims && (
+            {/* {idTokenClaims && (
                 <Card className="mt-4">
                     <Card.Header>
                         <h6 className="mb-0">Debug: ID Token Claims</h6>
@@ -349,7 +367,7 @@ const SecurityPage = ({ idTokenClaims }) => {
                         </small>
                     </Card.Body>
                 </Card>
-            )}
+            )} */}
         </Container>
     );
 };
