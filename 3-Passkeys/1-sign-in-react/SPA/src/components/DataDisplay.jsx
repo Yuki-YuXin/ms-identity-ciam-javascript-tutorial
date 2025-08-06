@@ -284,15 +284,13 @@ const PasswordSection = () => {
 
 // 3. SecurityAlert (Presentational Component)
 const SecurityAlert = ({ message, type = 'info', icon: IconComponent = FaExclamationTriangle }) => {
-    const alertVariant = type === 'info' ? 'info' : type === 'warning' ? 'warning' : 'danger';
-    
     return (
-        <Alert variant={alertVariant} className="mb-4">
+        <div className="security-alert mb-4">
             <div className="d-flex align-items-center">
-                <IconComponent className="me-2" />
-                <span>{message}</span>
+                <IconComponent className="me-2 security-alert-icon" />
+                <span className="security-alert-text">{message}</span>
             </div>
-        </Alert>
+        </div>
     );
 };
 
@@ -314,7 +312,7 @@ const SecurityPage = ({ idTokenClaims }) => {
     const alerts = [
         {
             id: 1,
-            message: "Consider adding a passkey for enhanced security and passwordless authentication.",
+            message: "For your security, multi-factor authentication is required when managing your credentials.",
             type: "info",
             icon: FaKey
         }
@@ -323,8 +321,8 @@ const SecurityPage = ({ idTokenClaims }) => {
     return (
         <Container className="py-4">
             <SecurityPageHeader 
-                title="Security Settings"
-                subtitle="Manage your account security settings, passwords, and authentication methods"
+                title="Security"
+                subtitle="Manage sign-in and verification options for your account"
             />
 
             {alerts.map(alert => (
