@@ -5,54 +5,37 @@ import { HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
 
 import '../styles/App.css';
 
-// Toast Notification Component
-const ToastNotification = ({ show, onClose, title, message, variant = 'success', icon: IconComponent }) => {
-    useEffect(() => {
-        if (show) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 4000); // Auto-hide after 4 seconds
-            return () => clearTimeout(timer);
-        }
-    }, [show, onClose]);
+// Combined Toast Component - handles both individual toasts and the container
+const ToastNotifications = ({ toasts, onCloseToast }) => {
+    const ToastItem = ({ toast, onClose }) => {
+        useEffect(() => {
+            if (toast.show) {
+                const timer = setTimeout(() => {
+                    onClose();
+                }, 4000); // Auto-hide after 4 seconds
+                return () => clearTimeout(timer);
+            }
+        }, [toast.show, onClose]);
 
-    const getIconComponent = () => {
-        if (IconComponent) return IconComponent;
-        switch (variant) {
-            case 'success': return FaCheck;
-            case 'info': return FaInfoCircle;
-            default: return FaInfoCircle;
-        }
+        return (
+            <Toast show={toast.show} onClose={onClose} className="mb-2">
+                <Toast.Header closeButton={true} className="border-0">
+                    <strong className="me-auto">{toast.title}</strong>
+                </Toast.Header>
+                <Toast.Body className="text-muted">
+                    {toast.message}
+                </Toast.Body>
+            </Toast>
+        );
     };
 
-    const Icon = getIconComponent();
-
-    return (
-        <Toast show={show} onClose={onClose} className="mb-2">
-            <Toast.Header closeButton={true} className="border-0">
-                <Icon className={`me-2 ${variant === 'success' ? 'text-success' : 'text-info'}`} />
-                <strong className="me-auto">{title}</strong>
-            </Toast.Header>
-            <Toast.Body className="text-muted">
-                {message}
-            </Toast.Body>
-        </Toast>
-    );
-};
-
-// Toast Container Component
-const NotificationToaster = ({ toasts, onCloseToast }) => {
     return (
         <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1050 }}>
             {toasts.map((toast) => (
-                <ToastNotification
+                <ToastItem
                     key={toast.id}
-                    show={toast.show}
+                    toast={toast}
                     onClose={() => onCloseToast(toast.id)}
-                    title={toast.title}
-                    message={toast.message}
-                    variant={toast.variant}
-                    icon={toast.icon}
                 />
             ))}
         </ToastContainer>
@@ -194,7 +177,7 @@ const AddPasskeyModal = ({ show, onHide, onSave }) => {
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="flex-fill rounded-pill"
+                                className="flex-shrink-0 ms-auto"
                                 onClick={handleNext}
                             >
                                 Next
@@ -231,8 +214,8 @@ const AddPasskeyModal = ({ show, onHide, onSave }) => {
                                 Back
                             </Button>
                             <Button 
-                                variant="primary" 
-                                className="flex-fill rounded-pill"
+                                variant="primary"
+                                className="flex-shrink-0 ms-auto"
                                 onClick={handleCreatePasskey}
                                 disabled={!passkeyName.trim()}
                             >
@@ -308,7 +291,7 @@ const EditPasskeyModal = ({ show, onHide, passkey, onSave }) => {
                     </Button>
                     <Button 
                         variant="primary" 
-                        className="flex-fill rounded-pill"
+                        className="flex-shrink-0 ms-auto"
                         onClick={handleSave}
                         disabled={!passkeyName.trim()}
                     >
@@ -404,7 +387,7 @@ const IdentityVerificationModal = ({
             </Modal.Header>
             <Modal.Body className="pt-0">
                 <p className="text-muted mb-4">
-                    To manage your passkeys, please verify your identity.
+                    To update your password, please verify your identity.
                 </p>
 
                 {verificationStep === 1 && (
@@ -416,9 +399,10 @@ const IdentityVerificationModal = ({
                         <div className="d-grid">
                             <Button 
                                 variant="primary" 
-                                size="lg"
+                                size="sm"
                                 onClick={handleSendCode}
-                                className="rounded-pill"
+                                className="rounded-3"
+                                style={{ padding: '12px 24px' }}
                             >
                                 Send Verification Code
                             </Button>
@@ -467,7 +451,7 @@ const IdentityVerificationModal = ({
                             </Button>
                             <Button 
                                 variant="primary" 
-                                className="flex-fill rounded-pill"
+                                className="flex-shrink-0 ms-auto"
                                 onClick={handleVerify}
                                 disabled={!isCodeComplete}
                             >
@@ -481,7 +465,7 @@ const IdentityVerificationModal = ({
     );
 };
 
-// 8. PasskeyItem (Presentational Component)
+// PasskeyItem (Presentational Component)
 const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
     return (
         <ListGroup.Item className="d-flex justify-content-between align-items-center">
@@ -514,7 +498,7 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
     );
 };
 
-// 7. PasskeysList (Presentational Component)
+// PasskeysList (Presentational Component)
 const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
     if (passkeys.length === 0) {
         return (
@@ -539,7 +523,7 @@ const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
     );
 };
 
-// 6. PasskeysHeader (Presentational Component)
+// PasskeysHeader (Presentational Component)
 const PasskeysHeader = ({ count, maxCount, onAddClick }) => {
     return (
         <div className="d-flex justify-content-between align-items-center mb-3">
@@ -557,7 +541,7 @@ const PasskeysHeader = ({ count, maxCount, onAddClick }) => {
     );
 };
 
-// 5. PasskeysSection (Container Component) - Updated with verification flow
+// PasskeysSection (Container Component) - Updated with verification flow
 const PasskeysSection = ({ onShowToast }) => {
     const [passkeys, setPasskeys] = useState(mockPasskeys);
     const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -697,7 +681,7 @@ const PasskeysSection = ({ onShowToast }) => {
     );
 };
 
-// 4. PasswordSection (Container Component)
+// PasswordSection (Container Component)
 const PasswordSection = ({ onShowToast }) => {
     const [showVerificationModal, setShowVerificationModal] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -827,7 +811,7 @@ const PasswordSection = ({ onShowToast }) => {
     );
 };
 
-// 3. SecurityAlert (Presentational Component)
+// SecurityAlert (Presentational Component)
 const SecurityAlert = ({ message, type = 'info', icon: IconComponent = FaExclamationTriangle }) => {
     return (
         <div className="security-alert mb-4">
@@ -839,7 +823,7 @@ const SecurityAlert = ({ message, type = 'info', icon: IconComponent = FaExclama
     );
 };
 
-// 2. SecurityPageHeader (Presentational Component)
+// SecurityPageHeader (Presentational Component)
 const SecurityPageHeader = ({ title, subtitle }) => {
     return (
         <div className="text-center mb-4">
@@ -930,25 +914,11 @@ const SecurityPage = ({ idTokenClaims }) => {
             <PasswordSection onShowToast={showToast} />
             <PasskeysSection onShowToast={showToast} />
 
-            {/* Toast Notifications */}
-            <NotificationToaster 
+            {/* Toast Notifications - Updated to use combined component */}
+            <ToastNotifications 
                 toasts={toasts} 
                 onCloseToast={closeToast} 
             />
-
-            {/* Debug: Show ID Token Claims */}
-            {/* {idTokenClaims && (
-                <Card className="mt-4">
-                    <Card.Header>
-                        <h6 className="mb-0">Debug: ID Token Claims</h6>
-                    </Card.Header>
-                    <Card.Body>
-                        <small className="text-muted">
-                            <pre>{JSON.stringify(idTokenClaims, null, 2)}</pre>
-                        </small>
-                    </Card.Body>
-                </Card>
-            )} */}
         </Container>
     );
 };
@@ -971,6 +941,5 @@ export {
     IdentityVerificationModal,
     AddPasskeyModal,
     EditPasskeyModal,
-    ToastNotification,
-    NotificationToaster
+    ToastNotifications // Updated export name
 };
