@@ -61,6 +61,14 @@ export const loginRequest = {
 };
 
 /**
+ * Access token request configuration for acquiring tokens silently
+ */
+export const tokenRequest = {
+    scopes: ["UserAuthenticationMethod.Read"],
+    account: null, // This will be set dynamically
+};
+
+/**
  * An optional silentRequest object can be used to achieve silent SSO
  * between applications by providing a "login_hint" property.
  */

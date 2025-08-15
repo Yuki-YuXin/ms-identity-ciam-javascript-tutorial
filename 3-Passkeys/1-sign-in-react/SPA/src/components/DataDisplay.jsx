@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Alert, Card, ListGroup, Modal, Form, Toast, ToastContainer } from 'react-bootstrap';
+import { Container, Button, Alert, Card, ListGroup, Modal, Form, Toast, ToastContainer, Spinner } from 'react-bootstrap';
 import { FaBell, FaKey, FaPlus, FaExclamationTriangle, FaTimes, FaCheck, FaInfoCircle } from 'react-icons/fa';
 import { HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import { useMsal } from '@azure/msal-react';
+import { tokenRequest } from '../authConfig';
 
 import '../styles/App.css';
 
@@ -837,17 +839,7 @@ const SecurityPageHeader = ({ title, subtitle }) => {
 };
 
 // UserProfileHeader (Presentational Component)
-const UserProfileHeader = ({ name, email}) => {
-    // Extract initials from name
-    const getInitials = (fullName) => {
-        return fullName
-            .split(' ')
-            .map(name => name.charAt(0))
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
-    };
-
+const UserProfileHeader = ({ name, email }) => {
     return (
         <div className="user-profile-header mb-4">
             <div className="user-info mb-3">
@@ -860,16 +852,98 @@ const UserProfileHeader = ({ name, email}) => {
     );
 };
 
-// Updated SecurityPage component
+// Updated SecurityPage component with MSAL integration
 const SecurityPage = ({ idTokenClaims }) => {
-    // Toast management state
+    const { instance, accounts } = useMsal();
+    const [accessToken, setAccessToken] = useState(null);
+    const [tokenClaims, setTokenClaims] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [toasts, setToasts] = useState([]);
-    
-    // Mock user data - you can replace this with actual user data from props or context
-    const userData = {
-        name: "John Doe",
-        email: "test@gmail.com",
+
+    // Function to decode JWT token
+    const parseJwt = (token) => {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        } catch (error) {
+            console.error('Error parsing JWT:', error);
+            return null;
+        }
     };
+
+    // Fetch access token on component mount
+    useEffect(() => {
+        const getAccessToken = async () => {
+            if (accounts.length > 0) {
+                try {
+                    const request = {
+                        ...tokenRequest,
+                        account: accounts[0],
+                    };
+
+                    // Try to get token silently first
+                    const response = await instance.acquireTokenSilent(request);
+                    setAccessToken(response.accessToken);
+                    
+                    // Decode the access token to show claims
+                    const decodedToken = parseJwt(response.accessToken);
+                    setTokenClaims(decodedToken);
+                    setLoading(false);
+                } catch (error) {
+                    console.error('Error acquiring access token:', error);
+                    setError('Failed to acquire access token. This might be because the token is not available or has expired.');
+                    setLoading(false);
+                }
+            } else {
+                setError('No account found');
+                setLoading(false);
+            }
+        };
+
+        getAccessToken();
+    }, [instance, accounts]);
+
+    // Extract user data from token claims
+    const getUserData = () => {
+        // Default fallback data
+        const defaultUserData = {
+            name: "User",
+            email: "user@example.com",
+        };
+
+        // Debug: Log available claims
+        console.log('TokenClaims:', tokenClaims);
+        console.log('IdTokenClaims:', idTokenClaims);
+
+        // If we have token claims, extract user information
+        if (tokenClaims) {
+            console.log('Using tokenClaims for user data');
+            return {
+                name: tokenClaims.name || tokenClaims.given_name || tokenClaims.family_name || defaultUserData.name,
+                email: tokenClaims.unique_name || tokenClaims.email || tokenClaims.preferred_username || tokenClaims.upn || tokenClaims.unique_name || defaultUserData.email,
+            };
+        }
+
+        // If we have idTokenClaims as fallback
+        if (idTokenClaims) {
+            console.log('Using idTokenClaims for user data');
+            return {
+                name: idTokenClaims.name || idTokenClaims.given_name || idTokenClaims.family_name || defaultUserData.name,
+                email: idTokenClaims.unique_name || idTokenClaims.email || idTokenClaims.preferred_username || idTokenClaims.upn || idTokenClaims.unique_name || defaultUserData.email,
+            };
+        }
+
+        console.log('Using default user data');
+        return defaultUserData;
+    };
+
+    // Only get user data after token is loaded
+    const userData = !loading && !error ? getUserData() : { name: "Loading...", email: "Loading..." };
 
     const alerts = [
         {
@@ -895,8 +969,43 @@ const SecurityPage = ({ idTokenClaims }) => {
         setToasts(prev => prev.filter(toast => toast.id !== toastId));
     };
 
+    // Show loading spinner while fetching token
+    if (loading) {
+        return (
+            <Container className="py-4">
+                <div className="d-flex justify-content-center">
+                    <Spinner animation="border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </Spinner>
+                </div>
+            </Container>
+        );
+    }
+
+    // Show error if token fetch failed
+    if (error) {
+        return (
+            <Container className="py-4">
+                <Alert variant="danger">
+                    <Alert.Heading>Error</Alert.Heading>
+                    <p>{error}</p>
+                </Alert>
+            </Container>
+        );
+    }
+
     return (
         <Container className="py-4">
+            {/* Debug Panel - Remove this once working */}
+            {/* {tokenClaims && (
+                <Alert variant="info" className="mb-4">
+                    <strong>Debug - Token Claims Available:</strong>
+                    <pre style={{ fontSize: '12px', marginTop: '10px' }}>
+                        {JSON.stringify(tokenClaims, null, 2)}
+                    </pre>
+                </Alert>
+            )} */}
+
             <UserProfileHeader 
                 name={userData.name}
                 email={userData.email}
@@ -914,7 +1023,7 @@ const SecurityPage = ({ idTokenClaims }) => {
             <PasswordSection onShowToast={showToast} />
             <PasskeysSection onShowToast={showToast} />
 
-            {/* Toast Notifications - Updated to use combined component */}
+            {/* Toast Notifications */}
             <ToastNotifications 
                 toasts={toasts} 
                 onCloseToast={closeToast} 
@@ -941,5 +1050,5 @@ export {
     IdentityVerificationModal,
     AddPasskeyModal,
     EditPasskeyModal,
-    ToastNotifications // Updated export name
+    ToastNotifications
 };
