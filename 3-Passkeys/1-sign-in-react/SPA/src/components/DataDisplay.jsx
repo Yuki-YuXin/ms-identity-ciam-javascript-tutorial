@@ -7,7 +7,35 @@ import { tokenRequest } from '../authConfig';
 
 import '../styles/App.css';
 
-// Microsoft Graph API service
+// Mock data from your API response
+const MOCK_PASSKEYS_DATA = {
+    "value": [
+        {
+            "id": "-2_GRUg2-HYz6_1YG4YRAQ2",
+            "displayName": "Red key",
+            "creationDateTime": "2020-08-10T06:44:09Z",
+            "aaGuid": "2fc0579f-8113-47ea-b116-555a8db9202a",
+            "model": "NFC key",
+            "attestationCertificates": [
+                "dbe793efdf1945e2df25d93653a1e8a3268a9075"
+            ],
+            "attestationLevel": "attested"
+        },
+        {
+            "id": "_jpuR-TGZgk6aQCLF3BQjA2",
+            "displayName": "Blue key",
+            "creationDateTime": "2020-08-10T06:25:38Z",
+            "aaGuid": "c5ef55ff-ad9a-4b9f-b580-ababafe026d0",
+            "model": "USB key",
+            "attestationCertificates": [
+                "b479e7652167f574296e76bfa76731b8ccd22ed7"
+            ],
+            "attestationLevel": "attested"
+        }
+    ]
+};
+
+// Updated Microsoft Graph API service with mock data support
 const GraphApiService = {
     // Function to call Microsoft Graph API
     async callGraphApi(accessToken, endpoint) {
@@ -34,13 +62,21 @@ const GraphApiService = {
         }
     },
 
-    // Get FIDO2 authentication methods for a user
+    // Get FIDO2 authentication methods for a user (now returns mock data)
     async getFido2Methods(accessToken, userId) {
-        const endpoint = `https://graph.microsoft.com/v1.0/users/${userId}/authentication/fido2Methods`;
-        return await this.callGraphApi(accessToken, endpoint);
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Return mock data instead of making real API call
+        console.log('Using mock FIDO2 data for user:', userId);
+        return MOCK_PASSKEYS_DATA;
+        
+        // Commented out real API call for now
+        // const endpoint = `https://graph.microsoft.com/v1.0/users/${userId}/authentication/fido2Methods`;
+        // return await this.callGraphApi(accessToken, endpoint);
     },
 
-    // Transform Graph API response to match our component's expected format
+    // Updated transform function to handle the actual API response structure
     transformFido2Methods(graphResponse) {
         if (!graphResponse || !graphResponse.value) {
             return [];
@@ -51,9 +87,11 @@ const GraphApiService = {
             name: method.displayName || 'Unnamed Passkey',
             lastUsed: method.lastUsedDateTime ? 
                 this.formatLastUsed(method.lastUsedDateTime) : 'Never',
-            created: method.createdDateTime ? 
-                new Date(method.createdDateTime).toLocaleDateString() : 'Unknown',
+            created: method.creationDateTime ? 
+                new Date(method.creationDateTime).toLocaleDateString() : 'Unknown',
             device: method.model || 'Unknown Device',
+            attestationLevel: method.attestationLevel || 'Unknown',
+            aaGuid: method.aaGuid,
             // Store additional Graph API data
             _graphData: method
         }));
@@ -80,6 +118,7 @@ const GraphApiService = {
         }
     }
 };
+
 
 // Combined Toast Component - handles both individual toasts and the container
 const ToastNotifications = ({ toasts, onCloseToast }) => {
@@ -559,32 +598,43 @@ const PasskeyItem = ({ passkey, onEdit, onDelete, isLoading = false }) => {
     );
 };
 
-// PasskeysList (Presentational Component)
+// Updated PasskeysList component with better empty state
 const PasskeysList = ({ passkeys, onEdit, onDelete, isLoading = false, error = null }) => {
     if (error) {
         return (
             <Alert variant="danger" className="mb-0">
-                <Alert.Heading>Error loading passkeys</Alert.Heading>
-                <p className="mb-0">{error}</p>
+                <div className="d-flex align-items-center">
+                    <FaExclamationTriangle className="me-2" />
+                    <div>
+                        <Alert.Heading className="mb-1">Error loading passkeys</Alert.Heading>
+                        <p className="mb-0">{error}</p>
+                    </div>
+                </div>
             </Alert>
         );
     }
 
     if (isLoading) {
         return (
-            <div className="text-center py-4">
-                <Spinner animation="border" role="status" className="mb-3">
+            <div className="text-center py-5">
+                <Spinner animation="border" role="status" className="mb-3" variant="primary">
                     <span className="visually-hidden">Loading...</span>
                 </Spinner>
-                <p className="text-muted">Loading your passkeys...</p>
+                <p className="text-muted mb-0">Loading your passkeys...</p>
             </div>
         );
     }
 
     if (passkeys.length === 0) {
         return (
-            <div className="text-center py-4">
-                <p className="text-muted">No passkeys configured yet</p>
+            <div className="text-center py-5">
+                <div className="mb-3">
+                    <FaKey size={48} className="text-muted opacity-50" />
+                </div>
+                <h6 className="text-muted mb-2">No passkeys configured yet</h6>
+                <p className="text-muted small mb-0">
+                    Create a passkey to sign in faster and more securely
+                </p>
             </div>
         );
     }
@@ -648,10 +698,10 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingPasskey, setEditingPasskey] = useState(null);
-    const [pendingAction, setPendingAction] = useState(null); // 'add' or 'edit'
+    const [pendingAction, setPendingAction] = useState(null);
     const maxPasskeys = 10;
 
-    // Function to fetch passkeys from Graph API
+    // Function to fetch passkeys (now uses mock data)
     const fetchPasskeys = async () => {
         if (!accessToken || !userId) {
             setError('Access token or user ID not available');
@@ -663,12 +713,13 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
             setIsLoading(true);
             setError(null);
             
+            // Use mock data service
             const response = await GraphApiService.getFido2Methods(accessToken, userId);
             const transformedPasskeys = GraphApiService.transformFido2Methods(response);
             
             setPasskeys(transformedPasskeys);
             
-            // Show success toast if this is a refresh (not initial load)
+            // Show success toast only on manual refresh (not initial load)
             if (passkeys.length > 0 && onShowToast) {
                 onShowToast({
                     title: 'Passkeys refreshed',
@@ -709,12 +760,9 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
     };
 
     const handleDeletePasskey = (passkeyId) => {
-        // Note: In a real implementation, you would call Graph API to delete the passkey
-        // For now, we'll simulate deletion and show a toast
         const passkeyToDelete = passkeys.find(p => p.id === passkeyId);
         setPasskeys(prev => prev.filter(p => p.id !== passkeyId));
         
-        // Show success toast
         if (onShowToast && passkeyToDelete) {
             onShowToast({
                 title: 'Passkey deleted',
@@ -734,19 +782,17 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
     };
 
     const handleSaveNewPasskey = (passkeyData) => {
-        // Note: In a real implementation, you would call Graph API to create the passkey
-        // For now, we'll simulate creation
         const newPasskey = {
             id: Date.now().toString(),
             ...passkeyData,
             created: new Date().toLocaleDateString(),
-            lastUsed: 'Never'
+            lastUsed: 'Never',
+            attestationLevel: 'attested'
         };
         setPasskeys(prev => [...prev, newPasskey]);
         setShowAddModal(false);
         setPendingAction(null);
         
-        // Show success toast
         if (onShowToast) {
             onShowToast({
                 title: 'Passkey created',
@@ -757,8 +803,6 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
     };
 
     const handleSaveEditedPasskey = (updatedPasskey) => {
-        // Note: In a real implementation, you would call Graph API to update the passkey
-        // For now, we'll simulate update
         setPasskeys(prev => prev.map(p => 
             p.id === updatedPasskey.id ? updatedPasskey : p
         ));
@@ -766,7 +810,6 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
         setEditingPasskey(null);
         setPendingAction(null);
         
-        // Show success toast
         if (onShowToast) {
             onShowToast({
                 title: 'Passkey updated',
@@ -1206,7 +1249,7 @@ const SecurityPage = ({ idTokenClaims }) => {
     return (
         <Container className="py-4">
             {/* Debug Panel - Remove this once working */}
-            {tokenClaims && (
+            {/* {tokenClaims && (
                 <Alert variant="info" className="mb-4">
                     <strong>Debug - Token Claims Available:</strong>
                     <pre style={{ fontSize: '12px', marginTop: '10px' }}>
@@ -1214,7 +1257,7 @@ const SecurityPage = ({ idTokenClaims }) => {
                     </pre>
                     <strong>Extracted User ID:</strong> {userId}
                 </Alert>
-            )}
+            )} */}
 
             <UserProfileHeader 
                 name={userData.name}
