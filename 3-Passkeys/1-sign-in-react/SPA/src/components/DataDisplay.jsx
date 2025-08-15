@@ -7,6 +7,80 @@ import { tokenRequest } from '../authConfig';
 
 import '../styles/App.css';
 
+// Microsoft Graph API service
+const GraphApiService = {
+    // Function to call Microsoft Graph API
+    async callGraphApi(accessToken, endpoint) {
+        const headers = new Headers();
+        headers.append('Authorization', `Bearer ${accessToken}`);
+        headers.append('Content-Type', 'application/json');
+
+        const options = {
+            method: 'GET',
+            headers: headers,
+        };
+
+        try {
+            const response = await fetch(endpoint, options);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Graph API call failed:', error);
+            throw error;
+        }
+    },
+
+    // Get FIDO2 authentication methods for a user
+    async getFido2Methods(accessToken, userId) {
+        const endpoint = `https://graph.microsoft.com/v1.0/users/${userId}/authentication/fido2Methods`;
+        return await this.callGraphApi(accessToken, endpoint);
+    },
+
+    // Transform Graph API response to match our component's expected format
+    transformFido2Methods(graphResponse) {
+        if (!graphResponse || !graphResponse.value) {
+            return [];
+        }
+
+        return graphResponse.value.map(method => ({
+            id: method.id,
+            name: method.displayName || 'Unnamed Passkey',
+            lastUsed: method.lastUsedDateTime ? 
+                this.formatLastUsed(method.lastUsedDateTime) : 'Never',
+            created: method.createdDateTime ? 
+                new Date(method.createdDateTime).toLocaleDateString() : 'Unknown',
+            device: method.model || 'Unknown Device',
+            // Store additional Graph API data
+            _graphData: method
+        }));
+    },
+
+    // Format last used date to friendly string
+    formatLastUsed(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+        if (diffInDays === 0) {
+            return 'Today';
+        } else if (diffInDays === 1) {
+            return '1 day ago';
+        } else if (diffInDays < 7) {
+            return `${diffInDays} days ago`;
+        } else if (diffInDays < 30) {
+            const weeks = Math.floor(diffInDays / 7);
+            return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+        } else {
+            const months = Math.floor(diffInDays / 30);
+            return months === 1 ? '1 month ago' : `${months} months ago`;
+        }
+    }
+};
+
 // Combined Toast Component - handles both individual toasts and the container
 const ToastNotifications = ({ toasts, onCloseToast }) => {
     const ToastItem = ({ toast, onClose }) => {
@@ -43,24 +117,6 @@ const ToastNotifications = ({ toasts, onCloseToast }) => {
         </ToastContainer>
     );
 };
-
-// Mock data for demonstration
-const mockPasskeys = [
-    {
-        id: 1,
-        name: 'iPhone Touch ID',
-        lastUsed: '2 days ago',
-        created: 'January 15, 2024',
-        device: 'iPhone 15 Pro'
-    },
-    {
-        id: 2,
-        name: 'Windows Hello',
-        lastUsed: '1 week ago',
-        created: 'December 10, 2023',
-        device: 'Surface Laptop'
-    }
-];
 
 // Add Passkey Modal Component
 const AddPasskeyModal = ({ show, onHide, onSave }) => {
@@ -468,7 +524,7 @@ const IdentityVerificationModal = ({
 };
 
 // PasskeyItem (Presentational Component)
-const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
+const PasskeyItem = ({ passkey, onEdit, onDelete, isLoading = false }) => {
     return (
         <ListGroup.Item className="d-flex justify-content-between align-items-center">
             <div>
@@ -477,6 +533,7 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
                 </div>
                 <small className="text-muted">
                     Device: {passkey.device} • Created: {passkey.created}
+                    {passkey.lastUsed !== 'Never' && ` • Last used: ${passkey.lastUsed}`}
                 </small>
             </div>
             <div>
@@ -485,6 +542,7 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
                     size="sm" 
                     className="me-2"
                     onClick={() => onEdit(passkey)}
+                    disabled={isLoading}
                 >
                     <HiOutlinePencil />
                 </Button>
@@ -492,6 +550,7 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
                     variant="outline-danger" 
                     size="sm"
                     onClick={() => onDelete(passkey.id)}
+                    disabled={isLoading}
                 >
                     <HiOutlineTrash />
                 </Button>
@@ -501,11 +560,30 @@ const PasskeyItem = ({ passkey, onEdit, onDelete }) => {
 };
 
 // PasskeysList (Presentational Component)
-const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
+const PasskeysList = ({ passkeys, onEdit, onDelete, isLoading = false, error = null }) => {
+    if (error) {
+        return (
+            <Alert variant="danger" className="mb-0">
+                <Alert.Heading>Error loading passkeys</Alert.Heading>
+                <p className="mb-0">{error}</p>
+            </Alert>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="text-center py-4">
+                <Spinner animation="border" role="status" className="mb-3">
+                    <span className="visually-hidden">Loading...</span>
+                </Spinner>
+                <p className="text-muted">Loading your passkeys...</p>
+            </div>
+        );
+    }
+
     if (passkeys.length === 0) {
         return (
             <div className="text-center py-4">
-                <FaKey className="text-muted mb-3" size={48} />
                 <p className="text-muted">No passkeys configured yet</p>
             </div>
         );
@@ -518,7 +596,8 @@ const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
                     key={passkey.id} 
                     passkey={passkey} 
                     onEdit={onEdit} 
-                    onDelete={onDelete} 
+                    onDelete={onDelete}
+                    isLoading={isLoading}
                 />
             ))}
         </ListGroup>
@@ -526,15 +605,32 @@ const PasskeysList = ({ passkeys, onEdit, onDelete }) => {
 };
 
 // PasskeysHeader (Presentational Component)
-const PasskeysHeader = ({ count, maxCount, onAddClick }) => {
+const PasskeysHeader = ({ count, maxCount, onAddClick, isLoading = false, onRefresh }) => {
     return (
         <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-1">Passkeys ({count}/{maxCount})</h5>
+            <div className="d-flex align-items-center gap-2">
+                <h5 className="mb-0">Passkeys ({count}/{maxCount})</h5>
+                {onRefresh && (
+                    <Button 
+                        variant="outline-secondary" 
+                        size="sm"
+                        onClick={onRefresh}
+                        disabled={isLoading}
+                        title="Refresh passkeys"
+                    >
+                        {isLoading ? (
+                            <Spinner animation="border" size="sm" />
+                        ) : (
+                            '↻'
+                        )}
+                    </Button>
+                )}
+            </div>
             <Button 
                 variant="primary" 
                 size="sm"
                 onClick={onAddClick}
-                disabled={count >= maxCount}
+                disabled={count >= maxCount || isLoading}
             >
                 <FaPlus className="me-1" />
                 Add Passkey
@@ -543,15 +639,63 @@ const PasskeysHeader = ({ count, maxCount, onAddClick }) => {
     );
 };
 
-// PasskeysSection (Container Component) - Updated with verification flow
-const PasskeysSection = ({ onShowToast }) => {
-    const [passkeys, setPasskeys] = useState(mockPasskeys);
+// PasskeysSection (Container Component) - Updated with Graph API integration
+const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
+    const [passkeys, setPasskeys] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [showVerificationModal, setShowVerificationModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingPasskey, setEditingPasskey] = useState(null);
     const [pendingAction, setPendingAction] = useState(null); // 'add' or 'edit'
     const maxPasskeys = 10;
+
+    // Function to fetch passkeys from Graph API
+    const fetchPasskeys = async () => {
+        if (!accessToken || !userId) {
+            setError('Access token or user ID not available');
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            setError(null);
+            
+            const response = await GraphApiService.getFido2Methods(accessToken, userId);
+            const transformedPasskeys = GraphApiService.transformFido2Methods(response);
+            
+            setPasskeys(transformedPasskeys);
+            
+            // Show success toast if this is a refresh (not initial load)
+            if (passkeys.length > 0 && onShowToast) {
+                onShowToast({
+                    title: 'Passkeys refreshed',
+                    message: `Found ${transformedPasskeys.length} passkey(s).`,
+                    variant: 'success'
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching FIDO2 methods:', err);
+            setError(`Failed to load passkeys: ${err.message}`);
+            
+            if (onShowToast) {
+                onShowToast({
+                    title: 'Error loading passkeys',
+                    message: 'Failed to load your passkeys. Please try again.',
+                    variant: 'danger'
+                });
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch passkeys on component mount and when dependencies change
+    useEffect(() => {
+        fetchPasskeys();
+    }, [accessToken, userId]);
 
     const handleAddPasskey = () => {
         setPendingAction('add');
@@ -565,7 +709,8 @@ const PasskeysSection = ({ onShowToast }) => {
     };
 
     const handleDeletePasskey = (passkeyId) => {
-        // Find the passkey name for the toast message
+        // Note: In a real implementation, you would call Graph API to delete the passkey
+        // For now, we'll simulate deletion and show a toast
         const passkeyToDelete = passkeys.find(p => p.id === passkeyId);
         setPasskeys(prev => prev.filter(p => p.id !== passkeyId));
         
@@ -589,8 +734,10 @@ const PasskeysSection = ({ onShowToast }) => {
     };
 
     const handleSaveNewPasskey = (passkeyData) => {
+        // Note: In a real implementation, you would call Graph API to create the passkey
+        // For now, we'll simulate creation
         const newPasskey = {
-            id: Date.now(),
+            id: Date.now().toString(),
             ...passkeyData,
             created: new Date().toLocaleDateString(),
             lastUsed: 'Never'
@@ -610,6 +757,8 @@ const PasskeysSection = ({ onShowToast }) => {
     };
 
     const handleSaveEditedPasskey = (updatedPasskey) => {
+        // Note: In a real implementation, you would call Graph API to update the passkey
+        // For now, we'll simulate update
         setPasskeys(prev => prev.map(p => 
             p.id === updatedPasskey.id ? updatedPasskey : p
         ));
@@ -638,18 +787,26 @@ const PasskeysSection = ({ onShowToast }) => {
         setPendingAction(null);
     };
 
+    const handleRefresh = () => {
+        fetchPasskeys();
+    };
+
     return (
         <Card className="mb-4">
             <Card.Body>
                 <PasskeysHeader 
                     count={passkeys.length} 
                     maxCount={maxPasskeys}
-                    onAddClick={handleAddPasskey} 
+                    onAddClick={handleAddPasskey}
+                    isLoading={isLoading}
+                    onRefresh={handleRefresh}
                 />
                 <PasskeysList 
                     passkeys={passkeys} 
                     onEdit={handleEditPasskey}
-                    onDelete={handleDeletePasskey} 
+                    onDelete={handleDeletePasskey}
+                    isLoading={isLoading}
+                    error={error}
                 />
             </Card.Body>
 
@@ -852,7 +1009,7 @@ const UserProfileHeader = ({ name, email }) => {
     );
 };
 
-// Updated SecurityPage component with MSAL integration
+// Updated SecurityPage component with MSAL integration and Graph API
 const SecurityPage = ({ idTokenClaims }) => {
     const { instance, accounts } = useMsal();
     const [accessToken, setAccessToken] = useState(null);
@@ -908,6 +1065,45 @@ const SecurityPage = ({ idTokenClaims }) => {
         getAccessToken();
     }, [instance, accounts]);
 
+    // Extract user ID from token claims
+    const getUserId = () => {
+        // Debug: Log available claims
+        console.log('TokenClaims:', tokenClaims);
+        console.log('IdTokenClaims:', idTokenClaims);
+
+        // If we have token claims, extract user ID (oid)
+        if (tokenClaims && tokenClaims.oid) {
+            console.log('Using tokenClaims for user ID:', tokenClaims.oid);
+            return tokenClaims.oid;
+        }
+
+        // If we have idTokenClaims as fallback
+        if (idTokenClaims && idTokenClaims.oid) {
+            console.log('Using idTokenClaims for user ID:', idTokenClaims.oid);
+            return idTokenClaims.oid;
+        }
+
+        // Fallback: try other possible user identifier claims
+        if (tokenClaims) {
+            const fallbackId = tokenClaims.sub || tokenClaims.unique_name;
+            if (fallbackId) {
+                console.log('Using fallback user ID from tokenClaims:', fallbackId);
+                return fallbackId;
+            }
+        }
+
+        if (idTokenClaims) {
+            const fallbackId = idTokenClaims.sub || idTokenClaims.unique_name;
+            if (fallbackId) {
+                console.log('Using fallback user ID from idTokenClaims:', fallbackId);
+                return fallbackId;
+            }
+        }
+
+        console.warn('No user ID found in token claims');
+        return null;
+    };
+
     // Extract user data from token claims
     const getUserData = () => {
         // Default fallback data
@@ -942,8 +1138,9 @@ const SecurityPage = ({ idTokenClaims }) => {
         return defaultUserData;
     };
 
-    // Only get user data after token is loaded
+    // Only get user data and ID after token is loaded
     const userData = !loading && !error ? getUserData() : { name: "Loading...", email: "Loading..." };
+    const userId = !loading && !error ? getUserId() : null;
 
     const alerts = [
         {
@@ -994,17 +1191,30 @@ const SecurityPage = ({ idTokenClaims }) => {
         );
     }
 
+    // Show error if no user ID could be extracted
+    if (!userId) {
+        return (
+            <Container className="py-4">
+                <Alert variant="warning">
+                    <Alert.Heading>User ID Not Available</Alert.Heading>
+                    <p>Unable to extract user ID from token claims. Please try logging in again.</p>
+                </Alert>
+            </Container>
+        );
+    }
+
     return (
         <Container className="py-4">
             {/* Debug Panel - Remove this once working */}
-            {/* {tokenClaims && (
+            {tokenClaims && (
                 <Alert variant="info" className="mb-4">
                     <strong>Debug - Token Claims Available:</strong>
                     <pre style={{ fontSize: '12px', marginTop: '10px' }}>
                         {JSON.stringify(tokenClaims, null, 2)}
                     </pre>
+                    <strong>Extracted User ID:</strong> {userId}
                 </Alert>
-            )} */}
+            )}
 
             <UserProfileHeader 
                 name={userData.name}
@@ -1021,7 +1231,11 @@ const SecurityPage = ({ idTokenClaims }) => {
             ))}
 
             <PasswordSection onShowToast={showToast} />
-            <PasskeysSection onShowToast={showToast} />
+            <PasskeysSection 
+                onShowToast={showToast} 
+                accessToken={accessToken}
+                userId={userId}
+            />
 
             {/* Toast Notifications */}
             <ToastNotifications 
@@ -1050,5 +1264,6 @@ export {
     IdentityVerificationModal,
     AddPasskeyModal,
     EditPasskeyModal,
-    ToastNotifications
+    ToastNotifications,
+    GraphApiService
 };
