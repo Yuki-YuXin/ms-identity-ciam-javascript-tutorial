@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { PublicClientApplication, EventType } from '@azure/msal-browser';
 import { msalConfig } from './authConfig';
-import CBOR from "cbor-js";
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/index.css';
@@ -136,9 +135,6 @@ async function createCredential(creationOptions) {
 
 	console.log('credential:', credential);
 
-	const decode = CBOR.decode(credential.response.attestationObject);
-	console.log('decoded attestationObject:', decode);
-
 	return credential;
 }
 
@@ -194,10 +190,10 @@ const msGraphDomain = "graph.microsoft.com/beta";
 const accessToken = await getAppToken(proxyDomain, appId, appSecret);
 
 // Register User Passkey
-// await registerUserPasskey(accessToken, msGraphDomain, userId);
+await registerUserPasskey(accessToken, msGraphDomain, userId);
 
 // Get User Passkeys
-await getUserPasskey(msGraphDomain, accessToken, userId);
+// await getUserPasskey(msGraphDomain, accessToken, userId);
 
 // Delete User Passkey
 // await deleteUserAllPasskey(msGraphDomain, accessToken, userId);
