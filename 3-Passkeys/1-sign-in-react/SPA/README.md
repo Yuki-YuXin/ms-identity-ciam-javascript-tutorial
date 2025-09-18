@@ -134,13 +134,13 @@ This starts the proxy server on `http://localhost:3001` for handling Microsoft G
 ```bash
 npm start
 ```
-This starts the React development server on `https://localhost:3000`.
+This starts the React development server on `https://<your-subdomain>:3000`.
 
 ### 4. Access the Application
 
 Open your browser and navigate to:
 ```
-https://localhost:3000
+https://<your-subdomain>:3000
 ```
 
 **Note**: The application runs on HTTPS with a self-signed certificate. You may need to accept the security warning in your browser.
