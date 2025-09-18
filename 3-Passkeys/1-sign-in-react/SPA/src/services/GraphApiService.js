@@ -210,10 +210,3 @@ export async function deleteUserPasskey(appToken, userId, passkeyId) {
         );
     }
 }
-
-async function deleteUserAllPasskey(msGraphDomain, appToken, userId) {
-    const passkeys = await getUserPasskey(msGraphDomain, appToken, userId);
-    for (const passkey of passkeys.value) {
-        await deleteUserPasskey(msGraphDomain, appToken, userId, passkey.id);
-    }
-}
