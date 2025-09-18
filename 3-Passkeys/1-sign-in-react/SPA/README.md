@@ -8,11 +8,12 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 - Node.js (version 16 or higher) - Required for React 18 and react-scripts 5
 - npm or yarn package manager
-- Microsoft Entra ID (Azure AD) tenant with CIAM configuration
 - Windows Administrator access (required for hosts file modification)
 - OpenSSL or similar tool for SSL certificate generation
+- Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
 - Yubikey supported FIDO2
+- Client application registered under CIAM tenant with UserAuthenticationMethod.ReadWrite.All application permissions granted by admin
 
 ### 1. Install Dependencies
 
@@ -145,14 +146,6 @@ https://<your-subdomain>:3000
 
 **Note**: The application runs on HTTPS with a self-signed certificate. You may need to accept the security warning in your browser.
 
-## 📋 Available Scripts
-
-- `npm start` - Runs the React app in development mode
-- `npm run cors` - Starts the CORS proxy server for Graph API calls
-- `npm run build` - Builds the app for production
-- `npm test` - Launches the test runner
-- `npm run eject` - Ejects from Create React App (one-way operation)
-
 ## 🔧 Configuration Details
 
 ### SSL Certificates
@@ -181,14 +174,12 @@ The app uses Microsoft Authentication Library (MSAL) for:
 
 ### Authentication
 - Sign in/out with Microsoft Identity Platform
-- Automatic token refresh
 - Session management with NGCMFA (Next Generation Credentials Multi-Factor Authentication)
 
 ### Passkey Management
 - View existing passkeys/FIDO2 credentials
 - Add new passkeys
 - Delete existing passkeys
-- Real-time passkey list updates with retry mechanisms
 
 ### Security Features
 - MFA enforcement for passkey operations
@@ -221,6 +212,6 @@ src/
 
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
-- [Microsoft Graph API](https://docs.microsoft.com/en-us/graph/)
+- [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)
 - [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
 - [Set up a reverse proxy for a single-page app using Azure Function App](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-test-environment)
