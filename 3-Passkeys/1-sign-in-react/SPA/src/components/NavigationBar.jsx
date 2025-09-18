@@ -1,15 +1,21 @@
 import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import { Navbar, Button } from 'react-bootstrap';
 import { loginRequest } from '../authConfig';
+import { clearAppTokenCache } from '../utils/tokenUtils';
 
 export const NavigationBar = () => {
     const { instance } = useMsal();
-    
+
     const handleLoginRedirect = () => {
-        instance.loginRedirect(loginRequest).catch((error) => console.log(error));
+        instance.loginRedirect({
+                ...loginRequest,
+                prompt: 'login',
+            }).catch((error) => console.log(error));
     };
 
     const handleLogoutRedirect = () => {
+        // Clear app token cache before logout
+        clearAppTokenCache(instance);
         instance.logoutRedirect().catch((error) => console.log(error));
     };
 

@@ -13,9 +13,9 @@ import { LogLevel } from '@azure/msal-browser';
 
 export const msalConfig = {
     auth: {
-        clientId: '56d7c325-1bd7-4bf8-846b-f91a0d82df3c', // This is the ONLY mandatory field that you need to supply.
-        authority: 'https://nativeauthasampleapp.ciamlogin.com/', // Replace the placeholder with your tenant subdomain 
-        redirectUri: 'http://localhost:3000/redirect', // Points to window.location.origin. You must register this URI on Microsoft Entra admin center/App Registration.
+        clientId: '578fedc1-b8e9-497c-9bc1-dfd1001b3d09', // This is the ONLY mandatory field that you need to supply.
+        authority: 'https://ciamunrestricted.ciamlogin.com/', // Replace the placeholder with your tenant subdomain 
+        redirectUri: '/', // Points to window.location.origin. You must register this URI on Microsoft Entra admin center/App Registration.
         postLogoutRedirectUri: '/', // Indicates the page to navigate after logout.
         navigateToLoginRequestUrl: false, // If "true", will navigate back to the original request location before processing the auth code response.
     },
@@ -56,23 +56,37 @@ export const msalConfig = {
  * For more information about OIDC scopes, visit: 
  * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent#openid-connect-scopes
  */
+const claimsRequestValue = {
+    access_token: {
+        amr: {
+        essential: true,
+        values: ['ngcmfa']
+        }
+    }
+};
+const claims = JSON.stringify(claimsRequestValue);
 export const loginRequest = {
     scopes: [],
+    extraQueryParameters: {
+        claims: claims,
+    },
 };
 
 /**
  * Access token request configuration for acquiring tokens silently
  */
 export const tokenRequest = {
-    scopes: ["UserAuthenticationMethod.Read"],
+    scopes: [],
     account: null, // This will be set dynamically
 };
 
 /**
- * An optional silentRequest object can be used to achieve silent SSO
- * between applications by providing a "login_hint" property.
+ * Application configuration for backend services
+ * These values are now directly configured instead of using environment variables
  */
-// export const silentRequest = {
-//     scopes: ["openid", "profile"],
-//     loginHint: "example@domain.net"
-// };
+export const appConfig = {
+    proxyDomain: 'http://localhost:3001/api',
+    appId: '<app-id>',
+    appSecret: '<app-secret>',
+    tenantId: '<tenant-id>',
+};

@@ -1,153 +1,247 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from 'react-bootstrap';
+import { useMsal } from '@azure/msal-react';
 import { PasskeysHeader, PasskeysList } from './PasskeyComponents';
-import { AddPasskeyModal, EditPasskeyModal } from '../modals/PasskeyModals';
-import IdentityVerificationModal from '../modals/IdentityVerificationModal';
-import GraphApiService from '../../services/GraphApiService';
+import { fetchUserPasskey, registerUserPasskey,  deleteUserPasskey } from '../../services/GraphApiService';
+import { clearAppTokenCache } from '../../utils/tokenUtils';
+import { 
+    PASSKEY_CONSTANTS, 
+    createRetryDelay, 
+    createFetchDelay, 
+    checkNgcmfaExpiration, 
+    createToastMessages 
+} from '../../utils/passkeyUtils';
 
-// PasskeysSection (Container Component) - Updated with Graph API integration
-const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
+const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
+    const { instance } = useMsal();
     const [passkeys, setPasskeys] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showVerificationModal, setShowVerificationModal] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [editingPasskey, setEditingPasskey] = useState(null);
-    const [pendingAction, setPendingAction] = useState(null);
-    const maxPasskeys = 10;
+    const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
 
-    // Function to fetch passkeys (now uses mock data)
-    const fetchPasskeys = async () => {
-        if (!accessToken || !userId) {
+    const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
+        const { 
+            maxRetries = expectedChange ? PASSKEY_CONSTANTS.MAX_RETRIES : 1,
+            showToast = false,
+            setLoadingState = true 
+        } = options;
+
+        if (!appToken || !userId) {
             setError('Access token or user ID not available');
-            setIsLoading(false);
+            if (setLoadingState) setIsLoading(false);
             return;
         }
 
-        try {
+        let lastError;
+        
+        if (setLoadingState) {
             setIsLoading(true);
             setError(null);
-            
-            // Use mock data service
-            const response = await GraphApiService.getFido2Methods(accessToken, userId);
-            const transformedPasskeys = GraphApiService.transformFido2Methods(response);
-            
-            setPasskeys(transformedPasskeys);
-            
-            // Show success toast only on manual refresh (not initial load)
-            if (passkeys.length > 0 && onShowToast) {
-                onShowToast({
-                    title: 'Passkeys refreshed',
-                    message: `Found ${transformedPasskeys.length} passkey(s).`,
-                    variant: 'success'
-                });
+        }
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                if (maxRetries > 1) {
+                    console.log(`Fetch attempt ${attempt}/${maxRetries}...`);
+                }
+                
+                const transformedPasskeys = await fetchUserPasskey(appToken, userId);
+                console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
+                
+                if (expectedChange) {
+                    const { type, passkeyId, expectedCount } = expectedChange;
+                    
+                    if (type === 'add' && expectedCount && transformedPasskeys.length < expectedCount) {
+                        console.log(`Expected ${expectedCount} passkeys after add, but got ${transformedPasskeys.length}. Retrying...`);
+                        if (attempt < maxRetries) {
+                            await createRetryDelay(attempt);
+                            continue;
+                        }
+                    }
+                    
+                    if (type === 'delete' && passkeyId && transformedPasskeys.some(p => p.id === passkeyId)) {
+                        console.log(`Passkey ${passkeyId} still exists after delete. Retrying...`);
+                        if (attempt < maxRetries) {
+                            await createRetryDelay(attempt);
+                            continue;
+                        }
+                    }
+                }
+                
+                setPasskeys(transformedPasskeys);
+                console.log(`Successfully updated passkey list with ${transformedPasskeys.length} items`);
+                
+                if (setLoadingState) {
+                    setIsLoading(false);
+                }
+                
+                if (showToast && passkeys.length > 0 && onShowToast) {
+                    onShowToast(createToastMessages.passkeysRefreshed(transformedPasskeys.length));
+                }
+                
+                return transformedPasskeys;
+                
+            } catch (error) {
+                lastError = error;
+                if (maxRetries > 1) {
+                    console.warn(`Fetch attempt ${attempt} failed:`, error);
+                } else {
+                    console.error('Error fetching FIDO2 methods:', error);
+                }
+                
+                if (attempt < maxRetries) {
+                    await createFetchDelay(attempt);
+                }
             }
-        } catch (err) {
-            console.error('Error fetching FIDO2 methods:', err);
-            setError(`Failed to load passkeys: ${err.message}`);
+        }
+        
+        const errorMsg = `Failed to load passkeys: ${lastError?.message || 'Unknown error'}`;
+        setError(errorMsg);
+        
+        if (onShowToast) {
+            onShowToast(createToastMessages.errorLoading());
+        }
+        
+        if (setLoadingState) {
+            setIsLoading(false);
+        }
+        
+        if (expectedChange) {
+            throw lastError || new Error('Max retries exceeded');
+        }
+        
+        return null;
+    }, [appToken, userId]);
+
+    useEffect(() => {
+        console.log('useEffect - Loading passkeys...');
+        fetchPasskeys().catch(error => {
+            console.error('Error in useEffect fetchPasskeys:', error);
+        });
+    }, [fetchPasskeys]);
+
+    const handleSignIn = async () => {
+        try {
+            console.log('Initiating MSAL re-authentication for expired NGCMFA token...');
             
             if (onShowToast) {
                 onShowToast({
-                    title: 'Error loading passkeys',
-                    message: 'Failed to load your passkeys. Please try again.',
+                    title: 'Redirecting...',
+                    message: 'Redirecting to sign-in page...',
+                    variant: 'info',
+                    autoHide: true
+                });
+            }
+
+            clearAppTokenCache(instance);
+            await instance.logoutRedirect();
+        } catch (error) {
+            console.error('Sign-in failed:', error);
+            if (onShowToast) {
+                onShowToast({
+                    title: 'Authentication error',
+                    message: 'Failed to initiate sign-in. Please try again.',
                     variant: 'danger'
                 });
+            }
+        }
+    };
+
+    const handleReAuthentication = async () => {
+        try {
+            if (onShowToast) {
+                console.log('Showing enhanced session expired toast with sign-in action...');
+                onShowToast(createToastMessages.sessionExpiredWithAction(handleSignIn));
+            }
+        } catch (error) {
+            console.error('Error during re-authentication setup:', error);
+            if (onShowToast) {
+                onShowToast(createToastMessages.authError());
+            }
+        }
+    };
+
+    const handleAddPasskey = async () => {
+        if (checkNgcmfaExpiration(ngcmfaExpiry)) {
+            console.log('NGCMFA token expired, triggering re-authentication...');
+            setIsLoading(false);
+            setError(null);
+            await handleReAuthentication();
+            return;
+        }
+
+        console.log('NGCMFA token is valid, proceeding with passkey addition...');
+
+        const currentCount = passkeys.length;
+        
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            await registerUserPasskey(appToken, userId);
+            console.log(`Passkey added. Expecting list to grow from ${currentCount} to ${currentCount + 1}`);
+            
+            console.log('Waiting for Microsoft Graph API to propagate changes...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const updatedPasskeys = await fetchPasskeys({
+                type: 'add',
+                expectedCount: currentCount + 1
+            }, {
+                setLoadingState: false
+            });
+
+            if (onShowToast && updatedPasskeys) {
+                onShowToast(createToastMessages.passkeyAdded());
+            }
+        } catch (err) {
+            console.error('Error adding passkey:', err);
+            if (onShowToast) {
+                onShowToast(createToastMessages.errorAdding(err.message));
             }
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Fetch passkeys on component mount and when dependencies change
-    useEffect(() => {
-        fetchPasskeys();
-    }, [accessToken, userId]);
+    const handleDeletePasskey = async (passkeyId) => {
+        if (checkNgcmfaExpiration(ngcmfaExpiry)) {
+            console.log('NGCMFA token expired, triggering re-authentication...');
+            setIsLoading(false);
+            setError(null);
+            await handleReAuthentication();
+            return;
+        }
 
-    const handleAddPasskey = () => {
-        setPendingAction('add');
-        setShowVerificationModal(true);
-    };
-
-    const handleEditPasskey = (passkey) => {
-        setEditingPasskey(passkey);
-        setPendingAction('edit');
-        setShowVerificationModal(true);
-    };
-
-    const handleDeletePasskey = (passkeyId) => {
+        console.log('NGCMFA token is valid, proceeding with passkey deletion...');
         const passkeyToDelete = passkeys.find(p => p.id === passkeyId);
-        setPasskeys(prev => prev.filter(p => p.id !== passkeyId));
+        console.log(`Deleting passkey with ID: ${passkeyId}`);
         
-        if (onShowToast && passkeyToDelete) {
-            onShowToast({
-                title: 'Passkey deleted',
-                message: `"${passkeyToDelete.name}" has been successfully removed.`,
-                variant: 'success'
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            await deleteUserPasskey(appToken, userId, passkeyId);
+            console.log(`Passkey deleted. Expecting passkey ${passkeyId} to be removed from list.`);
+            
+            const updatedPasskeys = await fetchPasskeys({
+                type: 'delete',
+                passkeyId: passkeyId
+            }, {
+                setLoadingState: false
             });
+
+            if (onShowToast && updatedPasskeys !== null) {
+                onShowToast(createToastMessages.passkeyDeleted(passkeyToDelete?.name || 'Unknown'));
+            }
+        } catch (err) {
+            console.error('Error deleting FIDO2 methods:', err);
+            if (onShowToast) {
+                onShowToast(createToastMessages.errorDeleting(err.message));
+            }
+        } finally {
+            setIsLoading(false);
         }
-    };
-
-    const handleVerificationComplete = () => {
-        setShowVerificationModal(false);
-        if (pendingAction === 'add') {
-            setShowAddModal(true);
-        } else if (pendingAction === 'edit') {
-            setShowEditModal(true);
-        }
-    };
-
-    const handleSaveNewPasskey = (passkeyData) => {
-        const newPasskey = {
-            id: Date.now().toString(),
-            ...passkeyData,
-            created: new Date().toLocaleDateString(),
-            lastUsed: 'Never',
-            attestationLevel: 'attested'
-        };
-        setPasskeys(prev => [...prev, newPasskey]);
-        setShowAddModal(false);
-        setPendingAction(null);
-        
-        if (onShowToast) {
-            onShowToast({
-                title: 'Passkey created',
-                message: `"${newPasskey.name}" has been successfully created.`,
-                variant: 'success'
-            });
-        }
-    };
-
-    const handleSaveEditedPasskey = (updatedPasskey) => {
-        setPasskeys(prev => prev.map(p => 
-            p.id === updatedPasskey.id ? updatedPasskey : p
-        ));
-        setShowEditModal(false);
-        setEditingPasskey(null);
-        setPendingAction(null);
-        
-        if (onShowToast) {
-            onShowToast({
-                title: 'Passkey updated',
-                message: `"${updatedPasskey.name}" has been successfully updated.`,
-                variant: 'success'
-            });
-        }
-    };
-
-    const handleCloseAddModal = () => {
-        setShowAddModal(false);
-        setPendingAction(null);
-    };
-
-    const handleCloseEditModal = () => {
-        setShowEditModal(false);
-        setEditingPasskey(null);
-        setPendingAction(null);
-    };
-
-    const handleRefresh = () => {
-        fetchPasskeys();
     };
 
     return (
@@ -158,43 +252,14 @@ const PasskeysSection = ({ onShowToast, accessToken, userId }) => {
                     maxCount={maxPasskeys}
                     onAddClick={handleAddPasskey}
                     isLoading={isLoading}
-                    onRefresh={handleRefresh}
                 />
                 <PasskeysList 
                     passkeys={passkeys} 
-                    onEdit={handleEditPasskey}
                     onDelete={handleDeletePasskey}
                     isLoading={isLoading}
                     error={error}
                 />
             </Card.Body>
-
-            {/* Identity Verification Modal */}
-            <IdentityVerificationModal
-                show={showVerificationModal}
-                onHide={() => {
-                    setShowVerificationModal(false);
-                    setEditingPasskey(null);
-                    setPendingAction(null);
-                }}
-                onVerificationComplete={handleVerificationComplete}
-                onShowToast={onShowToast}
-            />
-
-            {/* Add Passkey Modal */}
-            <AddPasskeyModal
-                show={showAddModal}
-                onHide={handleCloseAddModal}
-                onSave={handleSaveNewPasskey}
-            />
-
-            {/* Edit Passkey Modal */}
-            <EditPasskeyModal
-                show={showEditModal}
-                onHide={handleCloseEditModal}
-                passkey={editingPasskey}
-                onSave={handleSaveEditedPasskey}
-            />
         </Card>
     );
 };

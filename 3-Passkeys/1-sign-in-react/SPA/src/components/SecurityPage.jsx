@@ -1,137 +1,108 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Alert, Spinner } from 'react-bootstrap';
 import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
-import { tokenRequest } from '../authConfig';
+import { tokenRequest, appConfig } from '../authConfig';
+import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
 
-// Import the separated components
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
 import PasskeysSection from './passkeys/PasskeysSection';
-import PasswordSection from './password/PasswordSection';
 
-// SecurityPage component with MSAL integration and Graph API
-const SecurityPage = ({ idTokenClaims }) => {
+const NGCMFA_EXPIRY_MINUTES = 10;
+const SECONDS_PER_MINUTE = 60;
+
+export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
     const [accessToken, setAccessToken] = useState(null);
-    const [tokenClaims, setTokenClaims] = useState(null);
+    const [appToken, setAppToken] = useState(null);
+    const [ngcmfaExpiration, setNgcmfaExpiration] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [accessTokenError, setAccessTokenError] = useState(null);
+    const [appTokenError, setAppTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
-    // Function to decode JWT token
-    const parseJwt = (token) => {
-        try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            return JSON.parse(jsonPayload);
-        } catch (error) {
-            console.error('Error parsing JWT:', error);
-            return null;
-        }
-    };
 
-    // Fetch access token on component mount
     useEffect(() => {
-        const getAccessToken = async () => {
-            if (accounts.length > 0) {
-                try {
-                    const request = {
-                        ...tokenRequest,
-                        account: accounts[0],
-                    };
+        console.log('SecurityPage mounted, fetching access token...');
+        const fetchAccessToken = async () => {
+            try {
+                const result = await getAccessToken(instance, accounts, tokenRequest);
 
-                    // Try to get token silently first
-                    const response = await instance.acquireTokenSilent(request);
-                    setAccessToken(response.accessToken);
-                    
-                    // Decode the access token to show claims
-                    const decodedToken = parseJwt(response.accessToken);
-                    setTokenClaims(decodedToken);
+                if (result.error) {
+                    setAccessTokenError(result.error);
                     setLoading(false);
-                } catch (error) {
-                    console.error('Error acquiring access token:', error);
-                    setError('Failed to acquire access token. This might be because the token is not available or has expired.');
+                } else {
+                    setAccessTokenError(null);
+                    setAccessToken(result.decodedToken);
                     setLoading(false);
                 }
-            } else {
-                setError('No account found');
+            } catch (error) {
+                console.error('Access token fetch failed:', error);
+                setAccessTokenError(`Failed to get access token: ${error.message}`);
                 setLoading(false);
             }
         };
 
-        getAccessToken();
+        fetchAccessToken();
     }, [instance, accounts]);
 
-    // Extract user ID from token claims
+    useEffect(() => {
+        const fetchAppToken = async () => {
+            try {
+                const token = await getCachedAppToken(
+                    instance, 
+                    appConfig.proxyDomain, 
+                    appConfig.appId, 
+                    appConfig.appSecret
+                );
+                if (token) {
+                    setAppTokenError(null);
+                    setAppToken(token);
+                } else {
+                    throw new Error('App token request returned empty result');
+                }
+            } catch (error) {
+                console.error('Failed to fetch app token:', error);
+                setAppTokenError(`Failed to get app token: ${error.message}. Passkey functionality may be limited.`);
+            }
+        };
+
+        fetchAppToken();
+    }, [instance]);
+
+    useEffect(() => {
+        if (accessToken) {
+            const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
+            setNgcmfaExpiration(expiration);
+            console.log('NGCMFA expiration updated:', expiration);
+        } else {
+            setNgcmfaExpiration(null);
+            console.log('NGCMFA expiration cleared');
+        }
+    }, [accessToken]);
+
     const getUserId = () => {
-        // Debug: Log available claims
-        console.log('TokenClaims:', tokenClaims);
-        console.log('IdTokenClaims:', idTokenClaims);
-
-        // If we have token claims, extract user ID (oid)
-        if (tokenClaims && tokenClaims.oid) {
-            console.log('Using tokenClaims for user ID:', tokenClaims.oid);
-            return tokenClaims.oid;
-        }
-
-        // If we have idTokenClaims as fallback
-        if (idTokenClaims && idTokenClaims.oid) {
-            console.log('Using idTokenClaims for user ID:', idTokenClaims.oid);
-            return idTokenClaims.oid;
-        }
-
-        // Fallback: try other possible user identifier claims
-        if (tokenClaims) {
-            const fallbackId = tokenClaims.sub || tokenClaims.unique_name;
-            if (fallbackId) {
-                console.log('Using fallback user ID from tokenClaims:', fallbackId);
-                return fallbackId;
-            }
-        }
-
-        if (idTokenClaims) {
-            const fallbackId = idTokenClaims.sub || idTokenClaims.unique_name;
-            if (fallbackId) {
-                console.log('Using fallback user ID from idTokenClaims:', fallbackId);
-                return fallbackId;
-            }
+        if (accessToken && accessToken.oid) {
+            console.log('Using appToken for user ID:', accessToken.oid);
+            return accessToken.oid;
         }
 
         console.warn('No user ID found in token claims');
         return null;
     };
 
-    // Extract user data from token claims
     const getUserData = () => {
-        // Default fallback data
         const defaultUserData = {
             name: "User",
             email: "user@example.com",
         };
 
-        // Debug: Log available claims
-        console.log('TokenClaims:', tokenClaims);
-        console.log('IdTokenClaims:', idTokenClaims);
-
-        // If we have token claims, extract user information
-        if (tokenClaims) {
-            console.log('Using tokenClaims for user data');
+        if (accessToken) {
+            console.log('Using accessToken for user data');
             return {
-                name: tokenClaims.name || tokenClaims.given_name || tokenClaims.family_name || defaultUserData.name,
-                email: tokenClaims.unique_name || tokenClaims.email || tokenClaims.preferred_username || tokenClaims.upn || tokenClaims.unique_name || defaultUserData.email,
-            };
-        }
-
-        // If we have idTokenClaims as fallback
-        if (idTokenClaims) {
-            console.log('Using idTokenClaims for user data');
-            return {
-                name: idTokenClaims.name || idTokenClaims.given_name || idTokenClaims.family_name || defaultUserData.name,
-                email: idTokenClaims.unique_name || idTokenClaims.email || idTokenClaims.preferred_username || idTokenClaims.upn || idTokenClaims.unique_name || defaultUserData.email,
+                name: accessToken.name || accessToken.given_name || accessToken.family_name || defaultUserData.name,
+                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || accessToken.unique_name || defaultUserData.email,
             };
         }
 
@@ -139,9 +110,9 @@ const SecurityPage = ({ idTokenClaims }) => {
         return defaultUserData;
     };
 
-    // Only get user data and ID after token is loaded
-    const userData = !loading && !error ? getUserData() : { name: "Loading...", email: "Loading..." };
-    const userId = !loading && !error ? getUserId() : null;
+    const displayError = accessTokenError || appTokenError;
+    const userData = !loading && !accessTokenError ? getUserData() : { name: "Loading...", email: "Loading..." };
+    const userId = !loading && !accessTokenError ? getUserId() : null;
 
     const alerts = [
         {
@@ -152,22 +123,19 @@ const SecurityPage = ({ idTokenClaims }) => {
         }
     ];
 
-    // Function to show toast notifications
     const showToast = (toastData) => {
         const newToast = {
-            id: Date.now(),
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
             show: true,
             ...toastData
         };
         setToasts(prev => [...prev, newToast]);
     };
 
-    // Function to close toast notifications
     const closeToast = (toastId) => {
         setToasts(prev => prev.filter(toast => toast.id !== toastId));
     };
 
-    // Show loading spinner while fetching token
     if (loading) {
         return (
             <Container className="py-4">
@@ -180,19 +148,25 @@ const SecurityPage = ({ idTokenClaims }) => {
         );
     }
 
-    // Show error if token fetch failed
-    if (error) {
+    if (displayError) {
         return (
             <Container className="py-4">
-                <Alert variant="danger">
-                    <Alert.Heading>Error</Alert.Heading>
-                    <p>{error}</p>
+                <Alert variant={accessTokenError ? "danger" : "warning"}>
+                    <Alert.Heading>
+                        {accessTokenError ? "Authentication Error" : "Service Error"}
+                    </Alert.Heading>
+                    <p>{displayError}</p>
+                    {accessTokenError && appTokenError && (
+                        <>
+                            <hr />
+                            <p><strong>Additional issue:</strong> {appTokenError}</p>
+                        </>
+                    )}
                 </Alert>
             </Container>
         );
     }
 
-    // Show error if no user ID could be extracted
     if (!userId) {
         return (
             <Container className="py-4">
@@ -206,13 +180,13 @@ const SecurityPage = ({ idTokenClaims }) => {
 
     return (
         <Container className="py-4">
-            <UserProfileHeader 
+            <UserProfileHeader
                 name={userData.name}
                 email={userData.email}
             />
 
             {alerts.map(alert => (
-                <SecurityAlert 
+                <SecurityAlert
                     key={alert.id}
                     message={alert.message}
                     type={alert.type}
@@ -220,17 +194,17 @@ const SecurityPage = ({ idTokenClaims }) => {
                 />
             ))}
 
-            <PasswordSection onShowToast={showToast} />
-            <PasskeysSection 
-                onShowToast={showToast} 
-                accessToken={accessToken}
+            <PasskeysSection
+                onShowToast={showToast}
+                appToken={appToken}
                 userId={userId}
+                ngcmfaExpiry={ngcmfaExpiration}
             />
 
             {/* Toast Notifications */}
-            <ToastNotifications 
-                toasts={toasts} 
-                onCloseToast={closeToast} 
+            <ToastNotifications
+                toasts={toasts}
+                onCloseToast={closeToast}
             />
         </Container>
     );

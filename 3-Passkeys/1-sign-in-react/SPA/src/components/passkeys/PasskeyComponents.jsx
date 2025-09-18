@@ -1,10 +1,16 @@
-import React from 'react';
 import { Button, ListGroup, Alert, Spinner } from 'react-bootstrap';
 import { FaKey, FaPlus, FaExclamationTriangle } from 'react-icons/fa';
-import { HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlineTrash } from 'react-icons/hi';
 
-// PasskeyItem (Presentational Component)
-export const PasskeyItem = ({ passkey, onEdit, onDelete, isLoading = false }) => {
+/**
+ * Individual passkey item component for displaying passkey information
+ * @param {Object} props - Component props
+ * @param {Object} props.passkey - Passkey object containing id, name, model, created, lastUsed
+ * @param {Function} props.onDelete - Callback function when delete button is clicked
+ * @param {boolean} [props.isLoading=false] - Whether component is in loading state
+ * @returns {JSX.Element} Rendered passkey item
+ */
+export const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
     return (
         <ListGroup.Item className="d-flex justify-content-between align-items-center">
             <div>
@@ -12,20 +18,11 @@ export const PasskeyItem = ({ passkey, onEdit, onDelete, isLoading = false }) =>
                     <strong>{passkey.name}</strong>
                 </div>
                 <small className="text-muted">
-                    Device: {passkey.device} • Created: {passkey.created}
+                    Device: {passkey.model} • Created: {passkey.created}
                     {passkey.lastUsed !== 'Never' && ` • Last used: ${passkey.lastUsed}`}
                 </small>
             </div>
             <div>
-                <Button 
-                    variant="outline-secondary" 
-                    size="sm" 
-                    className="me-2"
-                    onClick={() => onEdit(passkey)}
-                    disabled={isLoading}
-                >
-                    <HiOutlinePencil />
-                </Button>
                 <Button 
                     variant="outline-danger" 
                     size="sm"
@@ -39,8 +36,16 @@ export const PasskeyItem = ({ passkey, onEdit, onDelete, isLoading = false }) =>
     );
 };
 
-// PasskeysList component with better empty state
-export const PasskeysList = ({ passkeys, onEdit, onDelete, isLoading = false, error = null }) => {
+/**
+ * List component for displaying multiple passkeys with loading and error states
+ * @param {Object} props - Component props
+ * @param {Array} props.passkeys - Array of passkey objects to display
+ * @param {Function} props.onDelete - Callback function when a passkey is deleted
+ * @param {boolean} [props.isLoading=false] - Whether list is in loading state
+ * @param {string|null} [props.error=null] - Error message to display if any
+ * @returns {JSX.Element} Rendered passkeys list
+ */
+export const PasskeysList = ({ passkeys, onDelete, isLoading = false, error = null }) => {
     if (error) {
         return (
             <Alert variant="danger" className="mb-0">
@@ -86,7 +91,6 @@ export const PasskeysList = ({ passkeys, onEdit, onDelete, isLoading = false, er
                 <PasskeyItem 
                     key={passkey.id} 
                     passkey={passkey} 
-                    onEdit={onEdit} 
                     onDelete={onDelete}
                     isLoading={isLoading}
                 />
@@ -95,27 +99,20 @@ export const PasskeysList = ({ passkeys, onEdit, onDelete, isLoading = false, er
     );
 };
 
-// PasskeysHeader (Presentational Component)
-export const PasskeysHeader = ({ count, maxCount, onAddClick, isLoading = false, onRefresh }) => {
+/**
+ * Header component for passkeys section with count display and add button
+ * @param {Object} props - Component props
+ * @param {number} props.count - Current number of passkeys
+ * @param {number} props.maxCount - Maximum allowed number of passkeys
+ * @param {Function} props.onAddClick - Callback function when add button is clicked
+ * @param {boolean} [props.isLoading=false] - Whether component is in loading state
+ * @returns {JSX.Element} Rendered passkeys header
+ */
+export const PasskeysHeader = ({ count, maxCount, onAddClick, isLoading = false }) => {
     return (
         <div className="d-flex justify-content-between align-items-center mb-3">
             <div className="d-flex align-items-center gap-2">
                 <h5 className="mb-0">Passkeys ({count}/{maxCount})</h5>
-                {onRefresh && (
-                    <Button 
-                        variant="outline-secondary" 
-                        size="sm"
-                        onClick={onRefresh}
-                        disabled={isLoading}
-                        title="Refresh passkeys"
-                    >
-                        {isLoading ? (
-                            <Spinner animation="border" size="sm" />
-                        ) : (
-                            '↻'
-                        )}
-                    </Button>
-                )}
             </div>
             <Button 
                 variant="primary" 

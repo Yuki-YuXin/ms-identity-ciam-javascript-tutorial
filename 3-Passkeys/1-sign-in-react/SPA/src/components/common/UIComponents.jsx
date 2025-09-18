@@ -1,7 +1,13 @@
-import React from 'react';
-import { FaBell, FaExclamationTriangle } from 'react-icons/fa';
+import { FaExclamationTriangle } from 'react-icons/fa';
 
-// SecurityAlert (Presentational Component)
+/**
+ * Security alert component for displaying informational messages with icons
+ * @param {Object} props - Component props
+ * @param {string} props.message - Alert message to display
+ * @param {string} [props.type='info'] - Alert type (info, warning, danger, success)
+ * @param {React.Component} [props.icon=FaExclamationTriangle] - Icon component to display
+ * @returns {JSX.Element} Rendered security alert
+ */
 export const SecurityAlert = ({ message, type = 'info', icon: IconComponent = FaExclamationTriangle }) => {
     return (
         <div className="security-alert mb-4">
@@ -13,20 +19,13 @@ export const SecurityAlert = ({ message, type = 'info', icon: IconComponent = Fa
     );
 };
 
-// SecurityPageHeader (Presentational Component)
-export const SecurityPageHeader = ({ title, subtitle }) => {
-    return (
-        <div className="text-center mb-4">
-            <div className="d-flex justify-content-center align-items-center mb-2">
-                <FaBell className="me-2 text-primary" size={32} />
-                <h2 className="mb-0">{title}</h2>
-            </div>
-            <p className="text-muted">{subtitle}</p>
-        </div>
-    );
-};
-
-// UserProfileHeader (Presentational Component)
+/**
+ * User profile header component displaying user information and description
+ * @param {Object} props - Component props
+ * @param {string} props.name - User's display name
+ * @param {string} props.email - User's email address
+ * @returns {JSX.Element} Rendered user profile header
+ */
 export const UserProfileHeader = ({ name, email }) => {
     return (
         <div className="user-profile-header mb-4">

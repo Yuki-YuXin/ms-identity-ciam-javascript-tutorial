@@ -1,10 +1,11 @@
 const http = require("http");
 const https = require("https");
 const url = require("url");
+const { appConfig } = require("./src/authConfig");
 const proxyConfig = {
     localApiPath: "/api",
     port: 3001,
-    proxy: `https://login.microsoftonline.com/e692acf6-1e98-4bba-b143-79815d81041e`,
+    proxy: `https://login.microsoftonline.com/${appConfig.tenantId}`,
 };
 
 const extraHeaders = [
