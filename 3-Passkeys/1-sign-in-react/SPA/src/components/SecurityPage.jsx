@@ -9,7 +9,7 @@ import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
 import PasskeysSection from './passkeys/PasskeysSection';
 
-const NGCMFA_EXPIRY_MINUTES = 1;
+const NGCMFA_EXPIRY_MINUTES = 10;
 const SECONDS_PER_MINUTE = 60;
 
 export const SecurityPage = () => {
