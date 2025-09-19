@@ -121,7 +121,89 @@ export const appConfig = {
 - The `HOST` value must exactly match your CIAM domain or subdomain for `rp.id` compliance
 - Update the values in `authConfig.js` with your actual Azure AD/CIAM configuration
 
-### 3. Start the Application
+### 3. Application Configuration
+
+Before running the application, you need to configure your Microsoft Entra ID application registration and update the MSAL configuration.
+
+#### Step 3.1: Configure MSAL Authentication Settings
+
+Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
+
+```javascript
+export const msalConfig = {
+    auth: {
+        clientId: "your-client-id-here",           // Replace with your Application (client) ID
+        authority: "https://your-tenant.ciamlogin.com/your-tenant.onmicrosoft.com", // Replace with your authority URL
+        redirectUri: "https://your-subdomain:3000", // Must match your registered redirect URI
+        postLogoutRedirectUri: "https://your-subdomain:3000",
+    },
+    // ... rest of configuration
+};
+```
+
+**How to get these values:**
+
+1. **Client ID**: Found in your app registration overview page
+2. **Authority**: Your CIAM tenant authority URL in the format `https://{tenant-name}.ciamlogin.com/{tenant-name}.onmicrosoft.com`
+3. **Redirect URI**: The URL where users will be redirected after authentication (must be registered in Entra portal)
+
+#### Step 3.2: Register Redirect URI in Entra Portal
+
+**⚠️ Critical Step**: You must register your redirect URI in the Entra portal for authentication to work.
+
+**Navigate to App Registration:**
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Navigate to **Microsoft Entra ID** → **App registrations**
+3. Select your application registration
+
+**Configure Single Page Application Platform:**
+1. In the left sidebar, click **Authentication**
+2. Under **Platform configurations**, click **+ Add a platform**
+3. Select **Single-page application (SPA)**
+4. In the **Redirect URIs** section, add your application URL:
+   ```
+   https://your-subdomain:3000
+   ```
+   Replace `your-subdomain` with your actual domain/subdomain
+5. Click **Configure** to save
+
+**Verify Configuration:**
+- Ensure the redirect URI exactly matches your `HOST` value in `.env` and `redirectUri` in `authConfig.js`
+- The URI should use HTTPS (required for production and recommended for development)
+- Port 3000 should match your development server port
+
+#### Step 3.3: Update Application Configuration
+
+Also update the `appConfig` object in `src/authConfig.js` with your backend/proxy settings:
+
+```javascript
+export const appConfig = {
+    proxyDomain: 'http://localhost:3001/api',    // CORS proxy endpoint
+    appId: 'your-client-id',                     // Same as msalConfig.auth.clientId
+    appSecret: 'your-client-secret',             // Your application secret
+    tenantId: 'your-tenant-id',                  // Your tenant ID
+};
+```
+
+**Security Note**: Never commit your `appSecret` to version control. Consider using environment variables for sensitive configuration.
+
+#### Step 3.4: Verify Required Permissions
+
+Ensure your app registration has the following Microsoft Graph API permissions:
+
+**Application Permissions (Admin consent required):**
+- `UserAuthenticationMethod.ReadWrite.All` - Required for passkey management
+
+**Delegated Permissions:**
+- `User.Read` - Basic user profile access
+- `UserAuthenticationMethod.ReadWrite` - User's own authentication methods
+
+**Grant Admin Consent:**
+1. In your app registration, go to **API permissions**
+2. Click **Grant admin consent for [Your Tenant]**
+3. Confirm the consent
+
+### 4. Start the Application
 
 You need to run both the CORS proxy server and the React application:
 
@@ -137,7 +219,7 @@ npm start
 ```
 This starts the React development server on `https://<your-subdomain>:3000`.
 
-### 4. Access the Application
+### 5. Access the Application
 
 Open your browser and navigate to:
 ```

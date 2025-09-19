@@ -138,13 +138,13 @@ export const createToastMessages = {
     }),
     
     sessionExpiredWithAction: (onSignIn) => ({
-        title: 'Session Expired',
-        message: 'Your authentication session has expired. Please sign in again to continue managing your passkeys.',
+        title: `Let's keep your account secure`,
+        message: 'You will need to complete multi-factor authentication to perform this action. You will be redirected to verify your identity securely.',
         variant: 'warning',
         autoHide: false,  // Keep visible until user acts
         type: 'sessionExpiredWithAction', // Unique identifier for center positioning
         action: {
-            label: 'Re-sign in',
+            label: 'Next',
             variant: 'primary',
             onClick: onSignIn
         }

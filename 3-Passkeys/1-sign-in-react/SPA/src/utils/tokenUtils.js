@@ -67,15 +67,18 @@ export const getAccessToken = async (instance, accounts, tokenRequest) => {
             return {
                 token: null,
                 decodedToken: null,
-                error: 'Failed to acquire access token. This might be because the token is not available or has expired.'
+                error: 'Failed to acquire access token. This might be because the token is not available or has expired. Please re-sign in.'
             };
         }
     } else {
-        return {
-            token: null,
-            decodedToken: null,
-            error: 'No account found'
-        };
+        // No accounts found - redirect to login
+        console.log(accounts)
+        try {
+            await instance.loginRedirect(tokenRequest);
+            return { token: null, decodedToken: null, error: 'Redirecting to login...' };
+        } catch (loginError) {
+            return { token: null, decodedToken: null, error: 'No account found' };
+        }
     }
 };
 

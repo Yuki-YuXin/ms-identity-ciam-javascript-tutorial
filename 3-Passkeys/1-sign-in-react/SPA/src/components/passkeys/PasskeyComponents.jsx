@@ -1,6 +1,36 @@
-import { Button, ListGroup, Alert, Spinner } from 'react-bootstrap';
-import { FaKey, FaPlus, FaExclamationTriangle } from 'react-icons/fa';
+import { useState } from 'react';
+import { Button, ListGroup, Alert, Spinner, Collapse, Row, Col } from 'react-bootstrap';
+import { FaKey, FaPlus, FaExclamationTriangle, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import { HiOutlineTrash } from 'react-icons/hi';
+
+/**
+ * Dropdown details component for expanded passkey information
+ */
+const DropdownDetails = ({ passkey }) => {
+    return (
+        <div className="mt-3 pt-3 border-top bg-light rounded p-3">
+            {/* Two rows, two columns layout for expanded details */}
+            <div className="flex-grow-1">
+                <Row className="g-3 mb-2">
+                    <Col xs={4} className="text-start">
+                        <div>
+                            <small className="text-muted d-block">Date Registered</small>
+                            <span className="small">{passkey.created || 'N/A'}</span>
+                        </div>
+                    </Col>
+                    <Col xs={8} className="text-start ps-3">
+                        <div>
+                            <small className="text-muted d-block">AAGUID</small>
+                            <span className="small">
+                                {passkey.aaGuid || 'N/A'}
+                            </span>
+                        </div>
+                    </Col>
+                </Row>
+            </div>
+        </div>
+    );
+};
 
 /**
  * Individual passkey item component for displaying passkey information
@@ -11,27 +41,88 @@ import { HiOutlineTrash } from 'react-icons/hi';
  * @returns {JSX.Element} Rendered passkey item
  */
 export const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const handleToggleExpand = () => {
+        setIsExpanded(!isExpanded);
+    };
+
+    const parseDeviceModel = (modelString) => {
+        if (!modelString) {
+            return { device: 'Unknown Device', method: 'Unknown Method' };
+        }
+        
+        const withIndex = modelString.toLowerCase().indexOf(' with ');
+        
+        if (withIndex === -1) {
+            // No "with" found, return full string as device
+            return { authenticatorDevice: modelString.trim(), method: 'Standard' };
+        }
+        
+        const authenticatorDevice = modelString.substring(0, withIndex).trim();
+        const method = modelString.substring(withIndex + 6).trim(); // +6 for " with "
+        
+        return { 
+            authenticatorDevice: authenticatorDevice || 'Unknown Device', 
+            method: method || 'Unknown Method' 
+        };
+    };
+
+    const deviceDetais = parseDeviceModel(passkey.model);
     return (
-        <ListGroup.Item className="d-flex justify-content-between align-items-center">
-            <div>
-                <div className="d-flex align-items-center mb-1">
-                    <strong>{passkey.name}</strong>
+        <ListGroup.Item className="passkey-item border-bottom" style={{ borderColor: '#e9ecef', borderWidth: '1px' }}>
+            {/* Main Row - always visible */}
+            <div className="d-flex justify-content-between align-items-center">
+                {/* Two rows, two columns content area */}
+                <div className="flex-grow-1">
+                    <Row className="g-2 mb-1">
+                        <Col xs={6} className="text-start">
+                            <strong>Passkey ({passkey.passkeyType})</strong>
+                        </Col>
+                        <Col xs={6} className="text-start">
+                            <span className="text-muted small">{deviceDetais.authenticatorDevice} - {deviceDetais.method}</span>
+                        </Col>
+                    </Row>
+                    <Row className="g-2">
+                        <Col xs={6} className="text-start">
+                            <small className="text-muted">{deviceDetais.authenticatorDevice}</small>
+                        </Col>
+                        <Col xs={6} className="text-start">
+                            <small className="text-muted">{deviceDetais.method} device</small>
+                        </Col>
+                    </Row>
                 </div>
-                <small className="text-muted">
-                    Device: {passkey.model} • Created: {passkey.created}
-                    {passkey.lastUsed !== 'Never' && ` • Last used: ${passkey.lastUsed}`}
-                </small>
+                
+                {/* Buttons: Delete first, then Dropdown */}
+                <div className="d-flex align-items-center gap-2">
+                    <Button 
+                        variant="outline-danger" 
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent expanding when clicking delete
+                            onDelete(passkey.id, passkey.name);
+                        }}
+                        disabled={isLoading}
+                    >
+                        <HiOutlineTrash />
+                    </Button>
+                    <Button 
+                        variant="outline-secondary" 
+                        size="sm"
+                        onClick={handleToggleExpand}
+                        className="border-0"
+                    >
+                        {isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />}
+                    </Button>
+                </div>
             </div>
-            <div>
-                <Button 
-                    variant="outline-danger" 
-                    size="sm"
-                    onClick={() => onDelete(passkey.id)}
-                    disabled={isLoading}
-                >
-                    <HiOutlineTrash />
-                </Button>
-            </div>
+
+            {/* Expandable Details */}
+            <Collapse in={isExpanded}>
+                <div>
+                    <DropdownDetails passkey={passkey} />
+                </div>
+            </Collapse>
         </ListGroup.Item>
     );
 };

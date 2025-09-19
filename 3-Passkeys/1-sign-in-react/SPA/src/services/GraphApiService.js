@@ -38,6 +38,22 @@ function formatLastUsed(dateString) {
     }
 }
 
+function formatDetailedDate (dateString) {
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    } catch {
+        return dateString;
+    }
+};
+
 function transformFido2Methods(graphResponse) {
     if (!graphResponse || !graphResponse.value) {
         return [];
@@ -49,11 +65,13 @@ function transformFido2Methods(graphResponse) {
             ? formatLastUsed(method.lastUsedDateTime)
             : "Never",
         created: method.createdDateTime
-            ? new Date(method.createdDateTime).toLocaleDateString()
+            ? formatDetailedDate(method.createdDateTime)
             : "Unknown",
-        model: method.model || "Unknown Device",
+        model: method.model || "Unknown Model",
         attestationLevel: method.attestationLevel || "Unknown",
         aaGuid: method.aaGuid,
+        passkeyType: method.passkeyType || "Unknown passkeyType",
+
         _graphData: method,
     }));
 }

@@ -65,6 +65,10 @@ const claimsRequestValue = {
     }
 };
 const claims = JSON.stringify(claimsRequestValue);
+
+// Add following claims into extraQueryParameters to enforce ngcmfa, which means every 10 minutes, user needs to re-authenticate with MFA in order to perform passkey creation/deletion operations.
+// This also trigger passkey during sign-in if user already has passkey registered, as passkey could be a default authentication method with highest priority.
+// Currently, for CIAM tenant, autofill with passkey as first authentication method is supported. Using passkey as a secondary auth method is not supported.
 export const loginRequest = {
     scopes: [],
     extraQueryParameters: {

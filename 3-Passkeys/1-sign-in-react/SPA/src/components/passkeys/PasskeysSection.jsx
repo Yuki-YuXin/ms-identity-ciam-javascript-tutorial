@@ -4,6 +4,7 @@ import { useMsal } from '@azure/msal-react';
 import { PasskeysHeader, PasskeysList } from './PasskeyComponents';
 import { fetchUserPasskey, registerUserPasskey,  deleteUserPasskey } from '../../services/GraphApiService';
 import { clearAppTokenCache } from '../../utils/tokenUtils';
+import { loginRequest } from '../../authConfig';
 import { 
     PASSKEY_CONSTANTS, 
     createRetryDelay, 
@@ -113,34 +114,33 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         return null;
     }, [appToken, userId]);
 
-    useEffect(() => {
-        console.log('useEffect - Loading passkeys...');
-        fetchPasskeys().catch(error => {
-            console.error('Error in useEffect fetchPasskeys:', error);
-        });
-    }, [fetchPasskeys]);
-
     const handleSignIn = async () => {
         try {
-            console.log('Initiating MSAL re-authentication for expired NGCMFA token...');
+            console.log('User clicked Re-sign in - proceeding with logout redirect...');
+            console.log('(Operation already cached when popup was shown)');
             
             if (onShowToast) {
                 onShowToast({
                     title: 'Redirecting...',
-                    message: 'Redirecting to sign-in page...',
+                    message: 'Signing out and redirecting to sign-in page...',
                     variant: 'info',
                     autoHide: true
                 });
             }
 
-            clearAppTokenCache(instance);
-            await instance.logoutRedirect();
+            const account = instance.getAllAccounts()[0];
+            console.log('Current account before logout:', account);
+            await instance.loginRedirect({
+                ...loginRequest,
+                authority: 'https://ciamunrestricted.ciamlogin.com/e692acf6-1e98-4bba-b143-79815d81041e',
+                prompt: 'login',
+            });
         } catch (error) {
-            console.error('Sign-in failed:', error);
+            console.error('Sign-in redirect failed:', error);
             if (onShowToast) {
                 onShowToast({
                     title: 'Authentication error',
-                    message: 'Failed to initiate sign-in. Please try again.',
+                    message: 'Failed to redirect to sign-in page. Please try again.',
                     variant: 'danger'
                 });
             }
@@ -161,16 +161,8 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         }
     };
 
-    const handleAddPasskey = async () => {
-        if (checkNgcmfaExpiration(ngcmfaExpiry)) {
-            console.log('NGCMFA token expired, triggering re-authentication...');
-            setIsLoading(false);
-            setError(null);
-            await handleReAuthentication();
-            return;
-        }
-
-        console.log('NGCMFA token is valid, proceeding with passkey addition...');
+    const performAddPasskey = async () => {
+        console.log('Performing passkey addition...');
 
         const currentCount = passkeys.length;
         
@@ -204,18 +196,29 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         }
     };
 
-    const handleDeletePasskey = async (passkeyId) => {
+    const handleAddPasskey = async () => {
         if (checkNgcmfaExpiration(ngcmfaExpiry)) {
-            console.log('NGCMFA token expired, triggering re-authentication...');
+            console.log('NGCMFA token expired, caching operation and showing identity verification popup...');
             setIsLoading(false);
             setError(null);
+            
+            // Use same structure as delete for consistency
+            const addOperation = { action: 'add' };
+            sessionStorage.setItem("postLoginAction", JSON.stringify(addOperation));
+
+            console.log('Add operation cached in sessionStorage');
             await handleReAuthentication();
             return;
         }
 
-        console.log('NGCMFA token is valid, proceeding with passkey deletion...');
+        console.log('NGCMFA token is valid, proceeding with passkey addition...');
+        await performAddPasskey();
+    };
+
+    const performDelete = async (passkeyId, cachedPasskeyName) => {
         const passkeyToDelete = passkeys.find(p => p.id === passkeyId);
         console.log(`Deleting passkey with ID: ${passkeyId}`);
+        const passkeyDisplayName = passkeyToDelete ? passkeyToDelete.name : cachedPasskeyName;
         
         try {
             setIsLoading(true);
@@ -232,7 +235,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             });
 
             if (onShowToast && updatedPasskeys !== null) {
-                onShowToast(createToastMessages.passkeyDeleted(passkeyToDelete?.name || 'Unknown'));
+                onShowToast(createToastMessages.passkeyDeleted(passkeyDisplayName || 'Unknown'));
             }
         } catch (err) {
             console.error('Error deleting FIDO2 methods:', err);
@@ -243,6 +246,70 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             setIsLoading(false);
         }
     };
+
+    const handleDeletePasskey = async (passkeyId, passkeyName) => {
+        if (checkNgcmfaExpiration(ngcmfaExpiry)) {
+            console.log('NGCMFA token expired, triggering re-authentication...');
+            setIsLoading(false);
+            setError(null);
+
+            // Cache both action and passkeyId
+            const deleteOperation = { 
+                action: 'delete', 
+                passkeyId: passkeyId,
+                passkeyName: passkeyName
+            };
+            sessionStorage.setItem("postLoginAction", JSON.stringify(deleteOperation));
+            console.log('Delete operation cached with passkeyId:', passkeyId);
+
+            await handleReAuthentication();
+            return;
+        }
+
+        console.log('NGCMFA token is valid, proceeding with passkey deletion...');
+        await performDelete(passkeyId);
+    };
+
+
+    useEffect(() => {
+        console.log('useEffect - Loading passkeys...');
+        fetchPasskeys().catch(error => {
+            console.error('Error in useEffect fetchPasskeys:', error);
+        });
+    }, [fetchPasskeys]);
+
+    useEffect(() => {
+        instance.handleRedirectPromise()
+            .then((response) => {
+                if (response) {
+                    console.log("User re-authenticated successfully");
+                }
+
+                const actionData = sessionStorage.getItem("postLoginAction");
+                console.log("Post-login action from sessionStorage:", actionData);
+                
+                if (actionData) {
+                    try {
+                        const operation = JSON.parse(actionData);
+                        sessionStorage.removeItem("postLoginAction");
+                        
+                        if (operation.action === "add") {
+                            console.log("Resuming ADD operation");
+                            performAddPasskey();
+                        } else if (operation.action === "delete" && operation.passkeyId) {
+                            console.log("Resuming DELETE operation for passkey:", operation.passkeyId);
+                            performDelete(operation.passkeyId, operation.passkeyName);
+                        }
+                    } catch (error) {
+                        console.error("Error parsing cached operation:", error);
+                        sessionStorage.removeItem("postLoginAction");
+                    }
+                }
+            }).catch((error) => {
+                console.error("Login failed:", error);
+            });
+        }, []);
+
 
     return (
         <Card className="mb-4">
