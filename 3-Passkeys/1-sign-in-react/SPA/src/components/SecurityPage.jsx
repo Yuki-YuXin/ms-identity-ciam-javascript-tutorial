@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Container, Alert, Spinner } from 'react-bootstrap';
 import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
-import { tokenRequest, appConfig } from '../authConfig';
+import { loginRequest, appConfig } from '../authConfig';
 import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
 import PasskeysSection from './passkeys/PasskeysSection';
 
-const NGCMFA_EXPIRY_MINUTES = 10;
+const NGCMFA_EXPIRY_MINUTES = 15;
 const SECONDS_PER_MINUTE = 60;
 
 export const SecurityPage = () => {
@@ -27,7 +27,7 @@ export const SecurityPage = () => {
         console.log('SecurityPage mounted, fetching access token...');
         const fetchAccessToken = async () => {
             try {
-                const result = await getAccessToken(instance, accounts, tokenRequest);
+                const result = await getAccessToken(instance, accounts, loginRequest);
 
                 if (result.error) {
                     setAccessTokenError(result.error);

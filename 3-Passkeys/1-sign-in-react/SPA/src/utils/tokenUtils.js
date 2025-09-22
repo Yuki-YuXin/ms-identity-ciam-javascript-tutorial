@@ -44,15 +44,15 @@ export const calculateNgcmfaExpiration = (decodedToken, expiryMinutes = 10, seco
  * @param {Object} tokenRequest - Token request configuration
  * @returns {Promise<Object>} - Object containing { token, decodedToken, error }
  */
-export const getAccessToken = async (instance, accounts, tokenRequest) => {
+export const getAccessToken = async (instance, accounts, loginRequest) => {
     if (accounts.length > 0) {
+        const request = {
+            claims: loginRequest.extraQueryParameters?.claims,
+            account: accounts[0],
+        };
+
         try {
             console.log('Account found for token request');
-            const request = {
-                ...tokenRequest,
-                account: accounts[0],
-            };
-
             const response = await instance.acquireTokenSilent(request);
             const decodedToken = parseJwt(response.accessToken);
             console.log('Access token acquired successfully');
@@ -63,6 +63,10 @@ export const getAccessToken = async (instance, accounts, tokenRequest) => {
                 error: null
             };
         } catch (error) {
+            if (error.errorCode === 'invalid_grant' && error.message.includes('multi-factor authentication has expired')) {
+            // Force interactive authentication for MFA expiry
+                return await instance.acquireTokenRedirect(request);
+            }
             console.error('Error acquiring access token:', error);
             return {
                 token: null,
@@ -72,9 +76,8 @@ export const getAccessToken = async (instance, accounts, tokenRequest) => {
         }
     } else {
         // No accounts found - redirect to login
-        console.log(accounts)
         try {
-            await instance.loginRedirect(tokenRequest);
+            await instance.loginRedirect(loginRequest);
             return { token: null, decodedToken: null, error: 'Redirecting to login...' };
         } catch (loginError) {
             return { token: null, decodedToken: null, error: 'No account found' };

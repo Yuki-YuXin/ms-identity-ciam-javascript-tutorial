@@ -57,32 +57,30 @@ export const msalConfig = {
  * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent#openid-connect-scopes
  */
 const claimsRequestValue = {
+    "id_token": {
+    "amr": {
+        "essential": true,
+        "values": ["ngcmfa"]
+        }
+    },
     access_token: {
         amr: {
-        essential: true,
-        values: ['ngcmfa']
+            essential: true,
+            values: ['ngcmfa']
         }
     }
 };
 const claims = JSON.stringify(claimsRequestValue);
-
-// Add following claims into extraQueryParameters to enforce ngcmfa, which means every 10 minutes, user needs to re-authenticate with MFA in order to perform passkey creation/deletion operations.
-// This also trigger passkey during sign-in if user already has passkey registered, as passkey could be a default authentication method with highest priority.
-// Currently, for CIAM tenant, autofill with passkey as first authentication method is supported. Using passkey as a secondary auth method is not supported.
 export const loginRequest = {
     scopes: [],
+    // Add following claims to enforce ngcmfa, which means every 15 minutes, user needs to re-authenticate with MFA in order to perform passkey creation/deletion operations.
+    // This also trigger passkey during sign-in if user already has passkey registered, as passkey could be a default authentication method with highest priority.
+    // Currently, for CIAM tenant, autofill with passkey as first authentication method is supported. Using passkey as a secondary auth method is not supported.
     extraQueryParameters: {
         claims: claims,
     },
 };
 
-/**
- * Access token request configuration for acquiring tokens silently
- */
-export const tokenRequest = {
-    scopes: [],
-    account: null, // This will be set dynamically
-};
 
 /**
  * Application configuration for backend services

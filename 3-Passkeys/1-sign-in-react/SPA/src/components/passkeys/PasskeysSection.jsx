@@ -129,11 +129,9 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             }
 
             const account = instance.getAllAccounts()[0];
-            console.log('Current account before logout:', account);
             await instance.loginRedirect({
                 ...loginRequest,
-                authority: 'https://ciamunrestricted.ciamlogin.com/e692acf6-1e98-4bba-b143-79815d81041e',
-                prompt: 'login',
+                loginHint: account.username
             });
         } catch (error) {
             console.error('Sign-in redirect failed:', error);
@@ -282,7 +280,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         instance.handleRedirectPromise()
             .then((response) => {
                 if (response) {
-                    console.log("User re-authenticated successfully");
+                    console.log("User authenticated successfully");
                 }
 
                 const actionData = sessionStorage.getItem("postLoginAction");
