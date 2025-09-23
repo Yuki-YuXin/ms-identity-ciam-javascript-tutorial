@@ -6,44 +6,54 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 ### Prerequisites
 
+#### App Setup
+
 - Node.js (version 16 or higher) - Required for React 18 and react-scripts 5
 - npm or yarn package manager
 - Windows Administrator access (required for hosts file modification)
 - OpenSSL or similar tool for SSL certificate generation
+
+#### Tenant Setup
+
 - Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
-- Yubikey supported FIDO2
 - Client application registered under CIAM tenant with UserAuthenticationMethod.ReadWrite.All application permissions granted by admin
 
-### 1. Install Dependencies
+#### Device
 
-```bash
-npm install
-```
+- Yubikey supported FIDO2
 
-### 2. Windows Domain Setup (Required for Passkey rp.id Compliance)
+## Set Up
 
-**⚠️ Critical for Passkeys**: WebAuthn requires the `rp.id` (Relying Party ID) to match the domain where passkey creation occurs. This setup ensures proper domain matching.
+The following instruction is to set up this sample app **locally**.
 
-#### Step 2.1: Update Windows Hosts File
+### 1. Windows Domain Setup (Required for Passkey rp.id Compliance)
+
+**⚠️ Critical for Passkeys**: WebAuthn requires the `rp.id` (Relying Party ID) to match the domain or subdomain where passkey creation occurs. This setup ensures proper domain matching.
+
+#### Step 1: Update Windows Hosts File
 
 1. **Open Command Prompt as Administrator**:
    - Press `Win + R`, type `cmd`
    - Press `Ctrl + Shift + Enter` (opens as admin)
 
 2. **Edit the hosts file**:
+
    ```cmd
    notepad C:\Windows\System32\drivers\etc\hosts
    ```
 
-3. **Add domain mapping** (replace with your actual CIAM domain, locally we need to use subdomain):
+3. **Add domain mapping** (replace with your actual CIAM domain, locally we need to use **subdomain** of your ciam tenant domain):
+
+For example, for authority like `<tenant-name>.ciamlogin.com`, locally please update file with subdomain e.g. `auth.<tenant-name>.ciamlogin.com` in order to not impact login flow.
+
    ```
-   127.0.0.1    your-subdomain
+   127.0.0.1    auth.<tenant-name>.ciamlogin.com
    ```
 
 4. **Save and close** the file
 
-#### Step 2.2: Generate SSL Certificate for Proper Domain
+#### Step 2: Generate SSL Certificate for Proper Domain
 
 1. **Install OpenSSL** (if not already installed):
    - Download from: https://slproweb.com/products/Win32OpenSSL.html
@@ -54,24 +64,26 @@ npm install
    - Or right-click Start button → "Windows PowerShell (Admin)"
 
 3. **Generate certificate for your domain**:
+
    ```powershell
    # Navigate to your project directory
    cd "C:\path\to\your\project\1-sign-in-react\SPA"
 
    # Step 1: Create the certificate (replace with your actual CIAM domain)
-   New-SelfSignedCertificate -DnsName "your-subdomain" -CertStoreLocation "cert:\LocalMachine\My" -NotAfter (Get-Date).AddYears(1) -FriendlyName "authCiamCert"
+   New-SelfSignedCertificate -DnsName "<your-subdomain>" -CertStoreLocation "cert:\LocalMachine\My" -NotAfter (Get-Date).AddYears(1) -FriendlyName "authCiamCert"
 
    # Step 2: Set password for certificate export
-   $pwd = ConvertTo-SecureString -String 'your-password' -Force -AsPlainText
+   $pwd = ConvertTo-SecureString -String '<your-password>' -Force -AsPlainText
 
    # Step 3: Get the certificate from the store
-   $cert = Get-ChildItem -Path "cert:\LocalMachine\My" | Where-Object { $_.Subject -eq "CN=your-subdomain" }
+   $cert = Get-ChildItem -Path "cert:\LocalMachine\My" | Where-Object { $_.Subject -eq "CN=<your-subdomain>" }
 
    # Step 4: Export certificate to PFX format in the same directory as .env
    Export-PfxCertificate -Cert $cert -FilePath ".\auth-cert.pfx" -Password $pwd
    ```
 
 3. **Convert PFX to PEM format using OpenSSL**:
+
    ```bash
    # Extract certificate (PEM format)
    openssl pkcs12 -in auth-cert.pfx -out auth-cert.pem -clcerts -nokeys
@@ -81,6 +93,7 @@ npm install
    ```
 
 4. **Install certificate in Trusted Root Certification Authorities**:
+
    ```powershell
    # Import PFX certificate to Trusted Root store to avoid browser security warnings
    Import-PfxCertificate -FilePath ".\auth-cert.pfx" -CertStoreLocation "Cert:\LocalMachine\Root" -Password $pwd
@@ -88,7 +101,7 @@ npm install
 
 5. **Update certificate file names** to match your `.env` configuration
 
-#### Step 2.3: Configuration Setup
+#### Step 3: Configuration Setup
 
 **Environment Configuration (.env file):**
 
@@ -97,10 +110,10 @@ Update your `.env` file with the development server configuration:
 ```env
 # SSL Configuration for HTTPS
 HTTPS=true
-HOST=your-subdomain
+HOST=<your-subdomain>
 PORT=3000
-SSL_CRT_FILE=./auth-cert.pem
-SSL_KEY_FILE=./auth-key.pem
+SSL_CRT_FILE=./auth-cert.pem # cert file
+SSL_KEY_FILE=./auth-key.pem # private key file
 ```
 
 **Application Configuration (authConfig.js):**
@@ -116,38 +129,9 @@ export const appConfig = {
 };
 ```
 
-**Important**: 
-- Replace `your-subdomain` with your actual CIAM domain or subdomain
-- The `HOST` value must exactly match your CIAM domain or subdomain for `rp.id` compliance
-- Update the values in `authConfig.js` with your actual Azure AD/CIAM configuration
+### 2. Tenant Configuration
 
-### 3. Application Configuration
-
-Before running the application, you need to configure your Microsoft Entra ID application registration and update the MSAL configuration.
-
-#### Step 3.1: Configure MSAL Authentication Settings
-
-Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
-
-```javascript
-export const msalConfig = {
-    auth: {
-        clientId: "your-client-id-here",           // Replace with your Application (client) ID
-        authority: "https://your-tenant.ciamlogin.com/your-tenant.onmicrosoft.com", // Replace with your authority URL
-        redirectUri: "https://your-subdomain:3000", // Must match your registered redirect URI
-        postLogoutRedirectUri: "https://your-subdomain:3000",
-    },
-    // ... rest of configuration
-};
-```
-
-**How to get these values:**
-
-1. **Client ID**: Found in your app registration overview page
-2. **Authority**: Your CIAM tenant authority URL in the format `https://{tenant-name}.ciamlogin.com/{tenant-name}.onmicrosoft.com`
-3. **Redirect URI**: The URL where users will be redirected after authentication (must be registered in Entra portal)
-
-#### Step 3.2: Register Redirect URI in Entra Portal
+#### Step 1: Register Redirect URI in Entra Portal
 
 **⚠️ Critical Step**: You must register your redirect URI in the Entra portal for authentication to work.
 
@@ -162,17 +146,50 @@ export const msalConfig = {
 3. Select **Single-page application (SPA)**
 4. In the **Redirect URIs** section, add your application URL:
    ```
-   https://your-subdomain:3000
+   https://<your-subdomain>:3000
    ```
-   Replace `your-subdomain` with your actual domain/subdomain
+   Replace `<your-subdomain>` with your actual subdomain
 5. Click **Configure** to save
 
-**Verify Configuration:**
-- Ensure the redirect URI exactly matches your `HOST` value in `.env` and `redirectUri` in `authConfig.js`
-- The URI should use HTTPS (required for production and recommended for development)
-- Port 3000 should match your development server port
+#### Step 2: Verify Required Permissions
 
-#### Step 3.3: Update Application Configuration
+Ensure your app registration has the following Microsoft Graph API permissions:
+
+**Application Permissions (Admin consent required):**
+- `UserAuthenticationMethod.ReadWrite.All` - Required for passkey management
+
+**Grant Admin Consent:**
+1. In your app registration, go to **API permissions**
+2. Click **Grant admin consent for [Your Tenant]**
+3. Confirm the consent
+
+### 3. Application Configuration
+
+Before running the application, you need to configure your Microsoft Entra ID application registration and update the MSAL configuration.
+
+#### Step 1: Configure MSAL Authentication Settings
+
+Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
+
+```javascript
+export const msalConfig = {
+    auth: {
+        clientId: "<your-client-id-here>",           // Replace with your Application (client) ID
+        authority: "https://<your-tenant-name>.ciamlogin.com/<your-tenant-name>.onmicrosoft.com", // Replace with your authority URL
+        redirectUri: "https://<your-subdomain>:3000", // Must match your registered redirect URI
+    },
+    // ... rest of configuration
+};
+```
+
+**How to get these values:**
+
+1. **Client ID**: Found in your app registration overview page
+2. **Authority**: Your CIAM tenant authority URL in the format `https://{tenant-name}.ciamlogin.com/{tenant-name}.onmicrosoft.com`
+3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
+
+
+#### Step 2: Update Application Configuration
 
 Also update the `appConfig` object in `src/authConfig.js` with your backend/proxy settings:
 
@@ -187,41 +204,36 @@ export const appConfig = {
 
 **Security Note**: Never commit your `appSecret` to version control. Consider using environment variables for sensitive configuration.
 
-#### Step 3.4: Verify Required Permissions
-
-Ensure your app registration has the following Microsoft Graph API permissions:
-
-**Application Permissions (Admin consent required):**
-- `UserAuthenticationMethod.ReadWrite.All` - Required for passkey management
-
-**Delegated Permissions:**
-- `User.Read` - Basic user profile access
-- `UserAuthenticationMethod.ReadWrite` - User's own authentication methods
-
-**Grant Admin Consent:**
-1. In your app registration, go to **API permissions**
-2. Click **Grant admin consent for [Your Tenant]**
-3. Confirm the consent
-
 ### 4. Start the Application
 
-You need to run both the CORS proxy server and the React application:
+#### Step 1: Install Dependencies
 
-#### Terminal 1 - Start CORS Proxy Server
+```bash
+npm install
+```
+
+#### Step 2: Start CORS Proxy Server
+
+Open a terminal and run the following command:
+
 ```bash
 npm run cors
 ```
+
 This starts the proxy server on `http://localhost:3001` for handling Microsoft Graph API requests.
 
-#### Terminal 2 - Start React Application
+#### Step 3: Start sample app
+
 ```bash
 npm start
 ```
+
 This starts the React development server on `https://<your-subdomain>:3000`.
 
 ### 5. Access the Application
 
 Open your browser and navigate to:
+
 ```
 https://<your-subdomain>:3000
 ```
@@ -233,21 +245,24 @@ https://<your-subdomain>:3000
 ### SSL Certificates
 
 The application includes SSL certificates for HTTPS development:
+
 - `auth-cert.pem` - SSL certificate
 - `auth-key.pem` - SSL private key
 
 ### CORS Proxy
 
 The `cors.js` file provides a proxy server that:
+
 - Handles CORS issues when calling Microsoft Graph API
 - Runs on port 3001
 - Proxies requests to `https://login.microsoftonline.com/{tenantId}`
 
-For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Function App](https://docs.microsoft.com/en-us/azure/static-web-apps/add-api) instead of the local CORS proxy.
+For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
 ### Authentication Configuration
 
 The app uses Microsoft Authentication Library (MSAL) for:
+
 - User authentication with Microsoft Identity Platform
 - Token acquisition for Graph API calls
 - Multi-factor authentication (MFA) enforcement for passkey operations
@@ -255,15 +270,18 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ## 🔐 Features
 
 ### Authentication
+
 - Sign in/out with Microsoft Identity Platform
 - Session management with NGCMFA (Next Generation Credentials Multi-Factor Authentication)
 
 ### Passkey Management
+
 - View existing passkeys/FIDO2 credentials
 - Add new passkeys
 - Delete existing passkeys
 
 ### Security Features
+
 - MFA enforcement for passkey operations
 - Automatic re-authentication when tokens expire
 - Enhanced error handling and user feedback
@@ -272,6 +290,7 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ## 🛠️ Development
 
 ### Project Structure
+
 ```
 src/
 ├── components/
@@ -283,12 +302,6 @@ src/
 ├── styles/              # CSS stylesheets
 └── authConfig.js        # MSAL configuration
 ```
-
-### Key Components
-- **SecurityPage** - Main page container with token management
-- **PasskeysSection** - Passkey management with self-contained authentication
-- **NavigationBar** - App navigation with sign-in/out functionality
-- **ToastNotifications** - User feedback system
 
 ## 📚 Additional Resources
 

@@ -6,17 +6,32 @@ import { clearAppTokenCache } from '../utils/tokenUtils';
 export const NavigationBar = () => {
     const { instance } = useMsal();
 
-    const handleLoginRedirect = () => {
-        instance.loginRedirect({
+    const handleLoginRedirect = async () => {
+        try {
+            await instance.loginRedirect({
                 ...loginRequest,
                 prompt: 'login',
-            }).catch((error) => console.log(error));
+            });
+        } catch (error) {
+            console.error('Login redirect failed:', error);
+        }
     };
 
-    const handleLogoutRedirect = () => {
+    const handleLogoutRedirect = async () => {
+        const accounts = instance.getAllAccounts();
+        console.log('Available accounts for logout:', accounts);
         // Clear app token cache before logout
         clearAppTokenCache(instance);
-        instance.logoutRedirect().catch((error) => console.log(error));
+
+        if (accounts.length === 0) {
+            await instance.clearCache();
+            window.location.href = '/';
+            return;
+        }
+        
+        await instance.logoutRedirect({
+            account: accounts[0],
+        });
     };
 
     /**

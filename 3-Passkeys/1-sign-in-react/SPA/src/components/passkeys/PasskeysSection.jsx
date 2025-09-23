@@ -129,6 +129,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             }
 
             const account = instance.getAllAccounts()[0];
+            clearAppTokenCache(instance);
             await instance.loginRedirect({
                 ...loginRequest,
                 loginHint: account.username
