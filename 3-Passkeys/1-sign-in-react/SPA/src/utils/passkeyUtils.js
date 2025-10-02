@@ -67,16 +67,20 @@ export const validateExpectedChange = (passkeys, expectedChange) => {
  */
 export const checkNgcmfaExpiration = (ngcmfaExpiry) => {
     if (!ngcmfaExpiry) {
+        console.log('NGCMFA check: No expiry time available - considering expired');
         return true; // Consider expired if no expiry time available
     }
     
     const currentTimeInSeconds = Math.floor(Date.now() / 1000);
     const isExpired = currentTimeInSeconds > ngcmfaExpiry;
+    const timeUntilExpiry = ngcmfaExpiry - currentTimeInSeconds;
     
-    console.log('NGCMFA Expiration Check:');
-    console.log('Current time (epoch seconds):', currentTimeInSeconds);
-    console.log('NGCMFA expiry (epoch seconds):', ngcmfaExpiry);
-    console.log('Is expired:', isExpired);
+    console.log('NGCMFA expiration check:', {
+        currentTime: currentTimeInSeconds,
+        expiryTime: ngcmfaExpiry,
+        timeUntilExpiry: timeUntilExpiry,
+        isExpired: isExpired
+    });
     
     return isExpired;
 };

@@ -1,4 +1,4 @@
-import { Button, Modal, Spinner } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 import { FaExclamationTriangle } from 'react-icons/fa';
 
 /**
@@ -8,10 +8,9 @@ import { FaExclamationTriangle } from 'react-icons/fa';
  * @param {Object} props.passkey - Passkey object to delete
  * @param {Function} props.onConfirm - Callback when user confirms deletion
  * @param {Function} props.onCancel - Callback when user cancels deletion
- * @param {boolean} [props.isDeleting=false] - Whether deletion is in progress
  * @returns {JSX.Element} Rendered confirmation modal
  */
-const DeleteModal = ({ show, passkey, onConfirm, onCancel, isDeleting = false }) => {
+const DeleteModal = ({ show, passkey, onConfirm, onCancel }) => {
     return (
         <Modal show={show} onHide={onCancel} centered>
             <Modal.Header closeButton>
@@ -31,29 +30,11 @@ const DeleteModal = ({ show, passkey, onConfirm, onCancel, isDeleting = false })
                 </div>
             </Modal.Body>
             <Modal.Footer>
-                <Button variant="secondary" onClick={onCancel} disabled={isDeleting}>
+                <Button variant="secondary" onClick={onCancel}>
                     Cancel
                 </Button>
-                <Button 
-                    variant="danger" 
-                    onClick={onConfirm}
-                    disabled={isDeleting}
-                >
-                    {isDeleting ? (
-                        <>
-                            <Spinner
-                                as="span"
-                                animation="border"
-                                size="sm"
-                                role="status"
-                                aria-hidden="true"
-                                className="me-2"
-                            />
-                            Deleting...
-                        </>
-                    ) : (
-                        'Delete Passkey'
-                    )}
+                <Button variant="danger" onClick={onConfirm}>
+                    Delete Passkey
                 </Button>
             </Modal.Footer>
         </Modal>

@@ -53,7 +53,7 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                         size="sm"
                         onClick={(e) => {
                             e.stopPropagation(); // Prevent expanding when clicking delete
-                            onDelete(passkey.id, passkey.name);
+                            onDelete(passkey);
                         }}
                         disabled={isLoading}
                     >

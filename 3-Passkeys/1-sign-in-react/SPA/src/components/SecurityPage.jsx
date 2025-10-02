@@ -24,7 +24,6 @@ export const SecurityPage = () => {
 
 
     useEffect(() => {
-        console.log('SecurityPage mounted, fetching access token...');
         const fetchAccessToken = async () => {
             try {
                 const result = await getAccessToken(instance, accounts, loginRequest);
@@ -38,7 +37,6 @@ export const SecurityPage = () => {
                     setLoading(false);
                 }
             } catch (error) {
-                console.error('Access token fetch failed:', error);
                 setAccessTokenError(`Failed to get access token: ${error.message}`);
                 setLoading(false);
             }
@@ -56,6 +54,7 @@ export const SecurityPage = () => {
                     appConfig.appId, 
                     appConfig.appSecret
                 );
+                
                 if (token) {
                     setAppTokenError(null);
                     setAppToken(token);
@@ -63,32 +62,29 @@ export const SecurityPage = () => {
                     throw new Error('App token request returned empty result');
                 }
             } catch (error) {
-                console.error('Failed to fetch app token:', error);
                 setAppTokenError(`Failed to get app token: ${error.message}. Passkey functionality may be limited.`);
+                setAppToken(null);
             }
         };
 
-        fetchAppToken();
-    }, [instance]);
+        if (instance) {
+            fetchAppToken();
+        }
+    }, [instance, accessToken]);
 
     useEffect(() => {
         if (accessToken) {
             const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
             setNgcmfaExpiration(expiration);
-            console.log('NGCMFA expiration updated:', expiration);
         } else {
             setNgcmfaExpiration(null);
-            console.log('NGCMFA expiration cleared');
         }
     }, [accessToken]);
 
     const getUserId = () => {
         if (accessToken && accessToken.oid) {
-            console.log('Using appToken for user ID:', accessToken.oid);
             return accessToken.oid;
         }
-
-        console.warn('No user ID found in token claims');
         return null;
     };
 
@@ -99,14 +95,12 @@ export const SecurityPage = () => {
         };
 
         if (accessToken) {
-            console.log('Using accessToken for user data');
             return {
                 name: accessToken.name || accessToken.given_name || accessToken.family_name || defaultUserData.name,
-                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || accessToken.unique_name || defaultUserData.email,
+                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || defaultUserData.email,
             };
         }
 
-        console.log('Using default user data');
         return defaultUserData;
     };
 
