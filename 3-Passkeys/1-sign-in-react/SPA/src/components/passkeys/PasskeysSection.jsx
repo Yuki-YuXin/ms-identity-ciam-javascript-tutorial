@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
 import { PasskeysHeader, PasskeysList } from './PasskeyComponents';
-import { fetchUserPasskey, registerUserPasskey,  deleteUserPasskey } from '../../services/GraphApiService';
+import { fetchUserPasskey, registerUserPasskey,  deleteUserPasskey } from '../../services/PasskeyService';
 import { clearAppTokenCache } from '../../utils/tokenUtils';
 import { loginRequest } from '../../authConfig';
 import { 

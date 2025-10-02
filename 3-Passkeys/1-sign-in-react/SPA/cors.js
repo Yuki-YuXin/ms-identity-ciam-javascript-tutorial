@@ -38,7 +38,7 @@ http.createServer((req, res) => {
     }
 
     if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-        const targetUrl = proxyConfig.proxy + reqUrl.pathname?.replace(proxyConfig.localApiPath, "") + (reqUrl.search || "");
+        const targetUrl = proxyConfig.proxy + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
 
         console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
 
