@@ -292,15 +292,82 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ### Project Structure
 
 ```
-src/
-├── components/
-│   ├── common/          # Shared UI components and utilities
-│   ├── passkeys/        # Passkey-specific components
-│   └── modals/          # Modal dialogs
-├── services/            # API service layer
-├── utils/               # Utility functions
-├── styles/              # CSS stylesheets
-└── authConfig.js        # MSAL configuration
+SPA/
+├── public/                          # Static assets
+│   ├── index.html                   # Main HTML template
+│   ├── favicon.svg                  # Application icon
+│   ├── manifest.json                # PWA manifest
+│   └── robots.txt                   # Search engine directives
+├── src/
+│   ├── components/                  # React components
+│   │   ├── common/                  # Shared UI components
+│   │   │   ├── index.js             # Component exports
+│   │   │   ├── ToastNotifications.jsx  # Toast notification system
+│   │   │   └── UIComponents.jsx     # Reusable UI elements
+│   │   ├── passkeys/                # Passkey management components
+│   │   │   ├── index.js             # Component exports
+│   │   │   ├── PasskeysSection.jsx  # Main passkey section
+│   │   │   └── components/          # Passkey sub-components
+│   │   │       ├── DeleteModal.jsx  # Delete confirmation modal
+│   │   │       ├── PasskeyDetails.jsx  # Detailed passkey info
+│   │   │       ├── PasskeyItem.jsx  # Individual passkey display
+│   │   │       ├── PasskeysHeader.jsx  # Section header with actions
+│   │   │       ├── PasskeysList.jsx # Passkey list container
+│   │   │       └── utils.js         # Component utility functions
+│   │   ├── NavigationBar.jsx        # Top navigation component
+│   │   ├── PageLayout.jsx           # Main page layout wrapper
+│   │   └── SecurityPage.jsx         # Main security/passkey page
+│   ├── hooks/                       # Custom React hooks
+│   │   └── passkeys/                # Passkey-specific hooks
+│   │       ├── index.js             # Hook exports
+│   │       ├── useAuthentication.js # Authentication flow management
+│   │       ├── useDeleteModal.js    # Delete modal state management
+│   │       ├── usePasskeyAddOperation.js    # Add passkey operations
+│   │       ├── usePasskeyDeleteOperation.js # Delete passkey operations
+│   │       ├── usePasskeyFetcher.js # Passkey data fetching
+│   │       └── usePasskeyOperations.js      # General passkey operations
+│   ├── services/                    # API service layer
+│   │   ├── GraphApiClient.js        # Microsoft Graph API client
+│   │   └── PasskeyService.js        # Passkey-specific API calls
+│   ├── utils/                       # Utility functions
+│   │   ├── graphServiceUtils.js     # Graph API utilities
+│   │   ├── passkeyUtils.js          # Passkey-related utilities
+│   │   └── tokenUtils.js            # Token management utilities
+│   ├── styles/                      # CSS stylesheets
+│   │   ├── App.css                  # Main application styles
+│   │   └── index.css                # Global styles
+│   ├── App.jsx                      # Root application component
+│   ├── authConfig.js                # MSAL and app configuration
+│   └── index.js                     # Application entry point
+├── auth-cert.pem                    # SSL certificate for HTTPS development
+├── auth-key.pem                     # SSL private key
+├── cors.js                          # CORS proxy server for development
+├── package.json                     # Node.js dependencies and scripts
+├── package-lock.json                # Locked dependency versions
+└── README.md                        # This documentation file
+```
+
+### Architecture Overview
+
+#### **Component Architecture**
+- **Modular Design**: Components are organized by feature (passkeys, common UI)
+- **Composition Pattern**: Smaller, focused components compose larger features
+- **Separation of Concerns**: UI components separated from business logic
+
+#### **Hook-Based State Management**
+- **Custom Hooks**: Business logic extracted into reusable hooks
+- **Separation of Concerns**: Authentication, data fetching, and operations in dedicated hooks
+- **Clean API**: Hooks provide simple interfaces for complex operations
+
+#### **Service Layer**
+- **API Abstraction**: Service layer abstracts Microsoft Graph API calls
+- **Error Handling**: Centralized error handling and response processing
+- **Token Management**: Secure token handling and caching
+
+#### **Utility Functions**
+- **Pure Functions**: Stateless utility functions for data processing
+- **Reusability**: Common operations shared across components
+- **Type Safety**: Robust data validation and transformation
 ```
 
 ## 📚 Additional Resources
