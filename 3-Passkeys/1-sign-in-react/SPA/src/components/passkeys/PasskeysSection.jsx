@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from 'react-bootstrap';
 import { useMsal } from '@azure/msal-react';
-import { PasskeysHeader, PasskeysList } from './PasskeyComponents';
+import PasskeysHeader from './components/PasskeysHeader';
+import PasskeysList from './components/PasskeysList';
+import DeleteModal from './components/DeleteModal';
 import { fetchUserPasskey, registerUserPasskey,  deleteUserPasskey } from '../../services/PasskeyService';
 import { clearAppTokenCache } from '../../utils/tokenUtils';
 import { loginRequest } from '../../authConfig';
@@ -18,6 +20,9 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
     const [passkeys, setPasskeys] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [passkeyToDelete, setPasskeyToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
 
     const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
@@ -247,10 +252,21 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
     };
 
     const handleDeletePasskey = async (passkeyId, passkeyName) => {
+        // Find the passkey object to store for the modal
+        const passkey = passkeys.find(p => p.id === passkeyId);
+        setPasskeyToDelete({ id: passkeyId, name: passkeyName, ...passkey });
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!passkeyToDelete) return;
+
+        const { id: passkeyId, name: passkeyName } = passkeyToDelete;
+
         if (checkNgcmfaExpiration(ngcmfaExpiry)) {
             console.log('NGCMFA token expired, triggering re-authentication...');
-            setIsLoading(false);
-            setError(null);
+            setShowDeleteModal(false);
+            setPasskeyToDelete(null);
 
             // Cache both action and passkeyId
             const deleteOperation = { 
@@ -266,7 +282,20 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         }
 
         console.log('NGCMFA token is valid, proceeding with passkey deletion...');
-        await performDelete(passkeyId);
+        setIsDeleting(true);
+        
+        try {
+            await performDelete(passkeyId, passkeyName);
+        } finally {
+            setIsDeleting(false);
+            setShowDeleteModal(false);
+            setPasskeyToDelete(null);
+        }
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteModal(false);
+        setPasskeyToDelete(null);
     };
 
 
@@ -311,22 +340,32 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
 
 
     return (
-        <Card className="mb-4">
-            <Card.Body>
-                <PasskeysHeader 
-                    count={passkeys.length} 
-                    maxCount={maxPasskeys}
-                    onAddClick={handleAddPasskey}
-                    isLoading={isLoading}
-                />
-                <PasskeysList 
-                    passkeys={passkeys} 
-                    onDelete={handleDeletePasskey}
-                    isLoading={isLoading}
-                    error={error}
-                />
-            </Card.Body>
-        </Card>
+        <>
+            <Card className="mb-4">
+                <Card.Body>
+                    <PasskeysHeader 
+                        count={passkeys.length} 
+                        maxCount={maxPasskeys}
+                        onAddClick={handleAddPasskey}
+                        isLoading={isLoading}
+                    />
+                    <PasskeysList 
+                        passkeys={passkeys} 
+                        onDelete={handleDeletePasskey}
+                        isLoading={isLoading}
+                        error={error}
+                    />
+                </Card.Body>
+            </Card>
+            
+            <DeleteModal
+                show={showDeleteModal}
+                passkey={passkeyToDelete}
+                onConfirm={confirmDelete}
+                onCancel={cancelDelete}
+                isDeleting={isDeleting}
+            />
+        </>
     );
 };
 
