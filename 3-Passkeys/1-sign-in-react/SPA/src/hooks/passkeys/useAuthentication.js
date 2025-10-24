@@ -21,9 +21,10 @@ export const useAuthentication = ({ onShowToast }) => {
             clearAppTokenCache(instance);
             await instance.loginRedirect({
                 ...loginRequest,
-                loginHint: account.username
+                loginHint: account?.username
             });
         } catch (error) {
+            console.error('Error during sign-in redirect:', error);
             if (onShowToast) {
                 onShowToast({
                     title: 'Authentication error',

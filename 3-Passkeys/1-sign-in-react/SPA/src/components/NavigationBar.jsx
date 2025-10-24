@@ -18,20 +18,22 @@ export const NavigationBar = () => {
     };
 
     const handleLogoutRedirect = async () => {
-        const accounts = instance.getAllAccounts();
-        console.log('Available accounts for logout:', accounts);
-        // Clear app token cache before logout
-        clearAppTokenCache(instance);
+        try {
+            const accounts = instance.getAllAccounts();
+            clearAppTokenCache(instance);
 
-        if (accounts.length === 0) {
-            await instance.clearCache();
-            window.location.href = '/';
-            return;
+            if (accounts.length === 0) {
+                await instance.clearCache();
+                window.location.href = '/';
+                return;
+            }
+            
+            await instance.logoutRedirect({
+                account: accounts[0],
+            });
+        } catch (error) {
+            console.error('Logout redirect failed:', error);
         }
-        
-        await instance.logoutRedirect({
-            account: accounts[0],
-        });
     };
 
     /**

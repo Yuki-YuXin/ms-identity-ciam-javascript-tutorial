@@ -118,6 +118,18 @@ export const SecurityPage = () => {
     ];
 
     const showToast = (toastData) => {
+        // Check if this is a sessionExpiredWithAction toast and if one already exists
+        if (toastData.type === 'sessionExpiredWithAction') {
+            const existingSessionExpiredToast = toasts.find(
+                toast => toast.type === 'sessionExpiredWithAction' && toast.show
+            );
+            
+            // If a session expired toast is already showing, don't add another one
+            if (existingSessionExpiredToast) {
+                return;
+            }
+        }
+
         const newToast = {
             id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
             show: true,
