@@ -17,7 +17,13 @@ const extraHeaders = [
     "x-client-last-telemetry",
     "client-request-id",
 ];
-http.createServer((req, res) => {
+
+const options = {
+    key: readFileSync('auth-key.pem'),
+    cert: readFileSync('auth-cert.pem'),
+};
+
+http.createServer(options, (req, res) => {
     const reqUrl = url.parse(req.url);
     const domain = url.parse(proxyConfig.proxy).hostname;
 
