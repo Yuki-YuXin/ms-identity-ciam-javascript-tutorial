@@ -158,5 +158,11 @@ export const createToastMessages = {
         title: 'Authentication error',
         message: 'Failed to re-authenticate. Please try again.',
         variant: 'danger'
+    }),
+
+    duplicateRegistrationWarning: (count) => ({
+        title: 'Duplicate registration warning',
+        message: `To avoid registration failure, please use a different security key or phone than previously used.`,
+        variant: 'warning'
     })
 };

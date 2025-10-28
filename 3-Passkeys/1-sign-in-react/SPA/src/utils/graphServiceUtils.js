@@ -112,3 +112,28 @@ export function transformFido2Methods(graphResponse) {
         _graphData: method,
     }));
 }
+
+export function decodeGraphCredentialId(id) {
+    // Match base and suffix number
+    const match = id.match(/^(.*?)(\d)$/);
+    if (!match) throw new Error("Invalid Microsoft Graph credential ID format");
+
+    let [, base, padCountStr] = match;
+    const padCount = parseInt(padCountStr, 10);
+
+    // Add '=' padding
+    base += "=".repeat(padCount);
+
+    // Convert Base64URL → Base64
+    base = base.replace(/-/g, "+").replace(/_/g, "/");
+
+    // Decode to bytes
+    const binary = atob(base);
+    const buffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) {
+        view[i] = binary.charCodeAt(i);
+    }
+
+    return buffer; // ArrayBuffer suitable for WebAuthn
+}

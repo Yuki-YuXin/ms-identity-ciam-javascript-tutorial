@@ -7,25 +7,10 @@ import {
     base64urlToBuffer, 
     bufferToBase64url, 
     transformFido2Methods,
-    generateUniquePasskeyName 
+    generateUniquePasskeyName,
+    decodeGraphCredentialId
 } from '../utils/graphServiceUtils.js';
 import { graphGet, graphPost, graphDelete } from './GraphApiClient.js';
-
-/**
- * Get passkey creation options from Microsoft Graph API
- * @param {string} appToken - Application access token
- * @param {string} userId - User ID
- * @returns {Promise<Object>} - WebAuthn creation options
- */
-async function getPasskeyCreationOptions(appToken, userId) {
-    const response = await graphGet(
-        `/users/${userId}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)?slice=Test`,
-        appToken
-    );
-    
-    const data = await response.json();
-    return data.publicKey;
-}
 
 /**
  * Create WebAuthn credential using browser's Credential Management API
@@ -33,6 +18,10 @@ async function getPasskeyCreationOptions(appToken, userId) {
  * @returns {Promise<PublicKeyCredential>} - Created credential
  */
 async function createCredential(creationOptions) {
+    creationOptions.excludeCredentials = creationOptions.excludeCredentials.map(c => ({
+        ...c,
+        id: decodeGraphCredentialId(c.id)
+    }));
     const publicKey = {
         challenge: base64urlToBuffer(creationOptions.challenge),
         rp: {
@@ -45,21 +34,22 @@ async function createCredential(creationOptions) {
             displayName: creationOptions.user.displayName,
         },
         pubKeyCredParams: creationOptions.pubKeyCredParams,
+        excludeCredentials: creationOptions.excludeCredentials,
         timeout: creationOptions.timeout,
         authenticatorSelection: creationOptions.authenticatorSelection,
         attestation: creationOptions.attestation,
     };
 
     console.log("Passkey creation options configured");
+    try {
+        const credential = await navigator.credentials.create({ publicKey });
+        console.log("Passkey credential created successfully");
+        return credential;
 
-    const credential = await navigator.credentials.create({ publicKey });
-
-    if (!credential) {
-        throw new Error("Passkey creation was not completed.");
+    } catch (error) {
+        console.error("Error during passkey creation:", error);
+        throw error;
     }
-
-    console.log("Passkey credential created successfully");
-    return credential;
 }
 
 /**
@@ -111,14 +101,29 @@ async function getUserPasskeys(appToken, userId) {
 }
 
 /**
+ * Get passkey creation options from Microsoft Graph API
+ * @param {string} appToken - Application access token
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} - WebAuthn creation options
+ */
+export async function getPasskeyCreationOptions(appToken, userId) {
+    const response = await graphGet(
+        `/users/${userId}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)?slice=Test`,
+        appToken
+    );
+    
+    const data = await response.json();
+    return data.publicKey;
+}
+
+/**
  * Register a new passkey for a user using Microsoft Graph API
  * @param {string} appToken - Application access token for Graph API authentication
  * @param {string} userId - The user ID to register the passkey for
  * @returns {Promise<void>} Promise that resolves when passkey registration is complete
  * @throws {Error} Throws error if passkey registration fails
  */
-export async function registerUserPasskey(appToken, userId) {
-    const creationOptions = await getPasskeyCreationOptions(appToken, userId);
+export async function registerUserPasskey(creationOptions, appToken, userId) {
     const credential = await createCredential(creationOptions);
     await createPasskey(credential, userId, appToken);
 }

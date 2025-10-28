@@ -1,4 +1,4 @@
-import { registerUserPasskey } from '../../services/PasskeyService';
+import { getPasskeyCreationOptions, registerUserPasskey } from '../../services/PasskeyService';
 import { createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
@@ -22,7 +22,12 @@ export const usePasskeyAddOperation = ({
                 throw new Error('Missing appToken or userId');
             }
 
-            await registerUserPasskey(appToken, userId);
+            const creationOptions = await getPasskeyCreationOptions(appToken, userId);
+            if (onShowToast && creationOptions.excludeCredentials.length > 0) {
+                onShowToast(createToastMessages.duplicateRegistrationWarning());
+                console.warn('To avoid registration failure, please use a different security key or phone than previously used.');
+            }
+            await registerUserPasskey(creationOptions, appToken, userId);
             
             if (onShowToast) {
                 onShowToast(createToastMessages.passkeyAdded());
