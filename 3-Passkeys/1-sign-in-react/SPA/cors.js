@@ -1,3 +1,4 @@
+const { readFileSync } = require('node:fs');
 const http = require("http");
 const https = require("https");
 const url = require("url");
