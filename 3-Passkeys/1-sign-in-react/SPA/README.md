@@ -8,16 +8,15 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 #### App Setup
 
-- Node.js (version 16 or higher) - Required for React 18 and react-scripts 5
-- npm or yarn package manager
+- Node.js (version 20 or higher), npm or yarn package manager - https://nodejs.org/en/download
 - Windows Administrator access (required for hosts file modification)
-- OpenSSL or similar tool for SSL certificate generation
+- OpenSSL or similar tool for SSL certificate generation (https://slproweb.com/products/Win32OpenSSL.html)
 
 #### Tenant Setup
 
 - Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
-- Client application registered under CIAM tenant with UserAuthenticationMethod.ReadWrite.All application permissions granted by admin
+- Client application registered under CIAM tenant with UserAuthMethod-Passkey.ReadWrite.All application permissions granted by admin
 
 #### Device
 
@@ -56,7 +55,7 @@ For example, for authority like `<tenant-name>.ciamlogin.com`, locally please up
 #### Step 2: Generate SSL Certificate for Proper Domain
 
 1. **Install OpenSSL** (if not already installed):
-   - Download from: https://slproweb.com/products/Win32OpenSSL.html
+   - Download from: 
    - Or use Git Bash if you have Git installed
 
 2. **Open PowerShell as Administrator**:
@@ -101,34 +100,6 @@ For example, for authority like `<tenant-name>.ciamlogin.com`, locally please up
 
 5. **Update certificate file names** to match your `.env` configuration
 
-#### Step 3: Configuration Setup
-
-**Environment Configuration (.env file):**
-
-Update your `.env` file with the development server configuration:
-
-```env
-# SSL Configuration for HTTPS
-HTTPS=true
-HOST=<your-subdomain>
-PORT=3000
-SSL_CRT_FILE=./auth-cert.pem # cert file
-SSL_KEY_FILE=./auth-key.pem # private key file
-```
-
-**Application Configuration (authConfig.js):**
-
-The React app authentication configuration is now centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
-
-```javascript
-export const appConfig = {
-    proxyDomain: 'http://localhost:3001/api',
-    appId: 'your-client-id',
-    appSecret: 'your-client-secret',
-    tenantId: 'your-tenant-id',
-};
-```
-
 ### 2. Tenant Configuration
 
 #### Step 1: Register Redirect URI in Entra Portal
@@ -156,7 +127,7 @@ export const appConfig = {
 Ensure your app registration has the following Microsoft Graph API permissions:
 
 **Application Permissions (Admin consent required):**
-- `UserAuthenticationMethod.ReadWrite.All` - Required for passkey management
+- `UserAuthMethod-Passkey.ReadWrite.All` - Required for passkey management
 
 **Grant Admin Consent:**
 1. In your app registration, go to **API permissions**
@@ -175,8 +146,8 @@ Update the `msalConfig.auth` section in `src/authConfig.js` with your applicatio
 export const msalConfig = {
     auth: {
         clientId: "<your-client-id-here>",           // Replace with your Application (client) ID
-        authority: "https://<your-tenant-name>.ciamlogin.com/<your-tenant-name>.onmicrosoft.com", // Replace with your authority URL
-        redirectUri: "https://<your-subdomain>:3000", // Must match your registered redirect URI
+        authority: "https://<your-tenant-name>.ciamlogin.com/", // Replace with your authority URL
+        redirectUri: "<redirect-uri>", // Must match your registered redirect URI in Entra portal
     },
     // ... rest of configuration
 };
@@ -188,21 +159,34 @@ export const msalConfig = {
 2. **Authority**: Your CIAM tenant authority URL in the format `https://{tenant-name}.ciamlogin.com/{tenant-name}.onmicrosoft.com`
 3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
 
+#### Step 2: Environment Configuration (.env file)
 
-#### Step 2: Update Application Configuration
+Update your `.env` file with the development server configuration:
 
-Also update the `appConfig` object in `src/authConfig.js` with your backend/proxy settings:
+```env
+# SSL Configuration for HTTPS
+HTTPS=true
+HOST=<your-subdomain>
+PORT=3000
+SSL_CRT_FILE=./auth-cert.pem # cert file
+SSL_KEY_FILE=./auth-key.pem # private key file
+```
+
+#### Step 3: Application Configuration (authConfig.js)
+
+The React app authentication configuration is now centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
 
 ```javascript
 export const appConfig = {
-    proxyDomain: 'http://localhost:3001/api',    // CORS proxy endpoint
-    appId: 'your-client-id',                     // Same as msalConfig.auth.clientId
-    appSecret: 'your-client-secret',             // Your application secret
-    tenantId: 'your-tenant-id',                  // Your tenant ID
+    proxyDomain: 'http://localhost:3001/api',
+    appId: 'your-client-id',
+    appSecret: 'your-client-secret',
+    tenantId: 'your-tenant-id',
+    customDomain: '<custom-domain>' // your valid custom domain, if not specify, use tenant subdomain by default
 };
 ```
 
-**Security Note**: Never commit your `appSecret` to version control. Consider using environment variables for sensitive configuration.
+**Security Note**: Never commit your `appSecret` to version control or deployment.
 
 ### 4. Start the Application
 
@@ -324,8 +308,7 @@ SPA/
 │   │       ├── useDeleteModal.js    # Delete modal state management
 │   │       ├── usePasskeyAddOperation.js    # Add passkey operations
 │   │       ├── usePasskeyDeleteOperation.js # Delete passkey operations
-│   │       ├── usePasskeyFetcher.js # Passkey data fetching
-│   │       └── usePasskeyOperations.js      # General passkey operations
+│   │       └── usePasskeyFetcher.js # Passkey data fetching
 │   ├── services/                    # API service layer
 │   │   ├── GraphApiClient.js        # Microsoft Graph API client
 │   │   └── PasskeyService.js        # Passkey-specific API calls
