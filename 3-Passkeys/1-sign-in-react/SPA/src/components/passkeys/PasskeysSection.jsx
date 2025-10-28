@@ -46,6 +46,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
         if (appToken && userId) {
             fetchPasskeys().catch(console.error);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appToken, userId]); // Only depend on appToken and userId, not fetchPasskeys
 
     useEffect(() => {
@@ -63,6 +64,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
                     }
                 }
             }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appToken, userId]);
 
     return (

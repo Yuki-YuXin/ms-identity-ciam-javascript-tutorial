@@ -11,6 +11,7 @@ import {
     decodeGraphCredentialId
 } from '../utils/graphServiceUtils.js';
 import { graphGet, graphPost, graphDelete } from './GraphApiClient.js';
+import { appConfig } from '../authConfig';
 
 /**
  * Create WebAuthn credential using browser's Credential Management API
@@ -25,7 +26,7 @@ async function createCredential(creationOptions) {
     const publicKey = {
         challenge: base64urlToBuffer(creationOptions.challenge),
         rp: {
-            id: creationOptions.rp.id,
+            id: appConfig.customDomain || creationOptions.rp.id,
             name: creationOptions.rp.name,
         },
         user: {

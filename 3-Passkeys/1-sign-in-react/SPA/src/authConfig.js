@@ -91,4 +91,5 @@ export const appConfig = {
     appId: '<app-id>',
     appSecret: '<app-secret>',
     tenantId: '<tenant-id>',
+    customDomain: '<custom-domain>'
 };
