@@ -186,7 +186,11 @@ export const appConfig = {
 };
 ```
 
-**Security Note**: Never commit your `appSecret` to version control or deployment.
+**SECURITY WARNING**: This configuration is for local development only. Never expose the **appSecret** in production environments. Store secrets securely using:
+
+- Environment variables
+- Azure Key Vault
+- Other secure secret management systems
 
 ### 4. Start the Application
 

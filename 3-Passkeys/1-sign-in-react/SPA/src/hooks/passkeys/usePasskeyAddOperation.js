@@ -42,7 +42,6 @@ export const usePasskeyAddOperation = ({
         } catch (err) {
             if (onShowToast) {
                 if (err.name === 'NotAllowedError') {
-                    console.log("User cancelled the passkey addition operation.");
                     onShowToast(createToastMessages.passkeyAddCancelled());
                 } else {
                     onShowToast(createToastMessages.errorAdding(err.message));

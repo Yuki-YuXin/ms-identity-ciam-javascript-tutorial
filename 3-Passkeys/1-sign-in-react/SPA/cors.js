@@ -1,4 +1,3 @@
-const { readFileSync } = require('node:fs');
 const http = require("http");
 const https = require("https");
 const url = require("url");
@@ -19,12 +18,7 @@ const extraHeaders = [
     "client-request-id",
 ];
 
-const options = {
-    key: readFileSync('auth-key.pem'),
-    cert: readFileSync('auth-cert.pem'),
-};
-
-http.createServer(options, (req, res) => {
+http.createServer((req, res) => {
     const reqUrl = url.parse(req.url);
     const domain = url.parse(proxyConfig.proxy).hostname;
 
