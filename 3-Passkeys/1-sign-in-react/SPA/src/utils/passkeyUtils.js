@@ -128,6 +128,12 @@ export const createToastMessages = {
         message: `Failed to add your passkey. Please try again: ${errorMessage}`,
         variant: 'danger'
     }),
+
+    passkeyAddCancelled: (errorMessage) => ({
+        title: 'Error adding passkey',
+        message: `Failed to add your passkey. The operation either timed out or was not allowed or passkey already registered on this device. Please try again.`,
+        variant: 'danger'
+    }),
     
     errorDeleting: (errorMessage) => ({
         title: 'Error deleting passkey',

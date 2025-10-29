@@ -23,10 +23,6 @@ export const usePasskeyAddOperation = ({
             }
 
             const creationOptions = await getPasskeyCreationOptions(appToken, userId);
-            if (onShowToast && creationOptions.excludeCredentials.length > 0) {
-                onShowToast(createToastMessages.duplicateRegistrationWarning());
-                console.warn('To avoid registration failure, please use a different security key or phone than previously used.');
-            }
             await registerUserPasskey(creationOptions, appToken, userId);
             
             if (onShowToast) {
@@ -45,7 +41,12 @@ export const usePasskeyAddOperation = ({
 
         } catch (err) {
             if (onShowToast) {
-                onShowToast(createToastMessages.errorAdding(err.message));
+                if (err.name === 'NotAllowedError') {
+                    console.log("User cancelled the passkey addition operation.");
+                    onShowToast(createToastMessages.passkeyAddCancelled());
+                } else {
+                    onShowToast(createToastMessages.errorAdding(err.message));
+                }
             }
         }
     };

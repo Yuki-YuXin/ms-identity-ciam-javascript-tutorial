@@ -129,11 +129,9 @@ export function decodeGraphCredentialId(id) {
 
     // Decode to bytes
     const binary = atob(base);
-    const buffer = new ArrayBuffer(binary.length);
-    const view = new Uint8Array(buffer);
-    for (let i = 0; i < binary.length; i++) {
-        view[i] = binary.charCodeAt(i);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; ++i) {
+        buffer[i] = binary.charCodeAt(i);
     }
-
-    return buffer; // ArrayBuffer suitable for WebAuthn
+    return buffer.buffer;
 }

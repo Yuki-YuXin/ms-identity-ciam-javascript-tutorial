@@ -50,7 +50,7 @@ async function createCredential(creationOptions) {
     } catch (error) {
         console.error("Error during passkey creation:", error);
         throw error;
-    }
+    };
 }
 
 /**
