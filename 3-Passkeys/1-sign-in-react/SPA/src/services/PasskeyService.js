@@ -155,5 +155,5 @@ export async function deleteUserPasskey(appToken, userId, passkeyId) {
         appToken
     );
     
-    console.log(`Passkey ${passkeyId} deleted successfully!`);
+    console.log(`Passkey deleted successfully!`);
 }
