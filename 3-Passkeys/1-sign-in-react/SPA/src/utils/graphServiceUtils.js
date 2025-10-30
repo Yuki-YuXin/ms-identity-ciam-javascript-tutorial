@@ -78,6 +78,24 @@ export function formatDetailedDate(dateString) {
 }
 
 /**
+ * Format passkey type for display with proper capitalization
+ * @param {string} passkeyType - Raw passkey type from Graph API
+ * @returns {string} - Formatted passkey type for display
+ */
+export function formatPasskeyType(passkeyType) {
+    if (!passkeyType) return "Unknown Passkey Type";
+    
+    switch (passkeyType.toLowerCase()) {
+        case 'synced':
+            return 'Synced';
+        case 'devicebound':
+            return 'Device Bound';
+        default:
+            return passkeyType; // Return original if unknown type
+    }
+}
+
+/**
  * Generate a unique passkey name with timestamp and random suffix
  * @returns {string} - Unique passkey name
  */
@@ -108,7 +126,7 @@ export function transformFido2Methods(graphResponse) {
         model: method.model || "Unknown Model",
         attestationLevel: method.attestationLevel || "Unknown",
         aaGuid: method.aaGuid,
-        passkeyType: method.passkeyType || "Unknown passkeyType",
+        passkeyType: formatPasskeyType(method.passkeyType),
         _graphData: method,
     }));
 }
