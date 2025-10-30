@@ -1,6 +1,8 @@
-# Microsoft Identity Platform - React SPA with Passkeys
+# Microsoft Identity Platform - React SPA with Passkeys (Preview)
 
 This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform and passkey management using Microsoft Graph API.
+
+**⚠️ This sample app is currently under private preview for testing purpose. Please do not deploy to production environment.**
 
 ## 🚀 Quick Start
 
@@ -8,9 +10,9 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 #### App Setup
 
-- Node.js (version 20 or higher), npm or yarn package manager - https://nodejs.org/en/download
+- [Node.js (version 20 or higher), npm or yarn package manager](https://nodejs.org/en/download)
 - Windows Administrator access (required for hosts file modification)
-- OpenSSL or similar tool for SSL certificate generation (https://slproweb.com/products/Win32OpenSSL.html)
+- OpenSSL or similar tool for SSL certificate generation
 
 #### Tenant Setup
 
@@ -55,7 +57,7 @@ For example, for authority like `<tenant-name>.ciamlogin.com`, locally please up
 #### Step 2: Generate SSL Certificate for Proper Domain
 
 1. **Install OpenSSL** (if not already installed):
-   - Download from: 
+   - Download from: https://slproweb.com/products/Win32OpenSSL.html
    - Or use Git Bash if you have Git installed
 
 2. **Open PowerShell as Administrator**:
@@ -279,7 +281,7 @@ The app uses Microsoft Authentication Library (MSAL) for:
 
 ### Project Structure
 
-```
+```text
 SPA/
 ├── public/                          # Static assets
 │   ├── index.html                   # Main HTML template
@@ -364,3 +366,4 @@ SPA/
 - [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)
 - [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
 - [Set up a reverse proxy for a single-page app using Azure Function App](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-test-environment)
+- 
