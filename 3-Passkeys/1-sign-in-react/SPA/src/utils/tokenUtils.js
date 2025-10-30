@@ -63,11 +63,8 @@ export const getAccessToken = async (instance, accounts, loginRequest) => {
                 error: null
             };
         } catch (error) {
-            if (error.errorCode === 'invalid_grant' && error.message.includes('multi-factor authentication has expired')) {
-            // Force interactive authentication for MFA expiry
-                return await instance.acquireTokenRedirect(request);
-            }
             console.error('Error acquiring access token:', error);
+            await instance.acquireTokenSilent(request);
             return {
                 token: null,
                 decodedToken: null,
